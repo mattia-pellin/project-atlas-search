@@ -1,0 +1,13 @@
+fastapi[standard]
+uvicorn
+curl_cffi
+beautifulsoup4
+lxml
+aiohttp
+python-dotenv
+sqlalchemy
+aiosqlite
+pydantic
+websockets
+sse-starlette
+cloudscraper
