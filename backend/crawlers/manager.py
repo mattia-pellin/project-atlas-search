@@ -50,7 +50,7 @@ class CrawlerManager:
             await yield_queue.put({"site": current_name, "type": "results", "data": results})
             await yield_queue.put(SearchStatus(site=current_name, status="completed"))
         except Exception as e:
-            await yield_queue.put(SearchStatus(site=name, status="error", error_message=str(e)))
+            await yield_queue.put(SearchStatus(site=current_name, status="error", error_message=str(e)))
         finally:
             await crawler.close()
 

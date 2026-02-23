@@ -71,7 +71,7 @@ export default function SettingsModal({ onClose }) {
     );
 
     return (
-        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+        <div className="modal-overlay">
             <div className="modal-content glass-panel animate-fade-in" style={{ maxWidth: '800px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                     <h2 style={{ margin: 0 }}>Settings</h2>

@@ -55,15 +55,23 @@ class DLECrawler(BaseCrawler):
                 
             # Try to find poster
             poster = None
-            img = article.find('img')
-            if img:
-                 poster = img.get('src')
+            poster_img = article.select_first('.img-box img, .poster img, .image-box img, a.main-image img')
+            if not poster_img:
+                poster_img = article.find('img')
+            if poster_img:
+                poster = poster_img.get('data-src') or poster_img.get('src')
+                if poster and poster.startswith('/'):
+                    from urllib.parse import urljoin
+                    poster = urljoin(self.base_url, poster)
                  
             # Extract Quality from title
-            quality = "SD"
-            q_match = re.search(r'(?i)\b(480p|576p|720p|1080p|2160p|4K)\b', title)
+            quality = "N/A"
+            q_match = re.search(r'(?i)\b(480[pi]|576[pi]|720[pi]|1080[pi]|2160[pi]|4k)\b', title)
             if q_match:
-                quality = q_match.group(1).upper()
+                q = q_match.group(1).lower()
+                if q == '4k':
+                    q = '2160p'
+                quality = q
             
             # Extract Date from article text
             date = "Unknown"
