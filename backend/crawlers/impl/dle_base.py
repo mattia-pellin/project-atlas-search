@@ -43,23 +43,35 @@ class DLECrawler(BaseCrawler):
                 
             title_tag = article.find('h2') or article.find('h3') or article.find('h1') or article.find('a', class_='title')
             
-            # Fallback for sites like HDItaliaBits where the container itself is an 'a' tag wrapping an 'h2'
+            # Fallback for sites like HDItaliaBits where the container itself is an 'a' tag wrapping an 'h2',
+            # and sites like HD4Me where the 'h2' does not wrap the 'a' tag.
             a_tag = None
+            title_text = "Unknown"
+            
             if title_tag:
                  if title_tag.name == 'a':
                      a_tag = title_tag
+                     title_text = title_tag.text.strip()
                  else:
                      a_tag = title_tag.find('a')
+                     if a_tag:
+                         title_text = a_tag.text.strip()
+                     else:
+                         title_text = title_tag.text.strip()
             
-            # If the title is just text inside h2/h3 and the wrapper is 'a', use the wrapper
+            # If the wrapper itself is 'a', use it
             if not a_tag and article.name == 'a':
                  a_tag = article
-                 title_text = title_tag.text.strip() if title_tag else article.text.strip()
+                 if not title_tag:
+                     title_text = article.text.strip()
+                     
+            # Final fallback: any link in the article
+            if not a_tag:
+                 a_tag = article.find('a')
+                 
             # If no 'a' tag whatsoever was found, skip
-            elif not a_tag:
+            if not a_tag:
                  continue
-            else:
-                 title_text = a_tag.text.strip()
                  
             title = title_text
             link = a_tag.get('href', '')
