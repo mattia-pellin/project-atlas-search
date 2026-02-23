@@ -31,19 +31,23 @@ function App() {
 
     const eventSource = new EventSource(`${API_BASE}/search/stream?q=${encodeURIComponent(query)}`);
 
-    eventSource.onmessage = (event) => {
+    eventSource.addEventListener('status', (event) => {
       const data = JSON.parse(event.data);
+      setStatuses(prev => ({ ...prev, [data.site]: data.status }));
+    });
 
-      if (data.type === 'status') {
-        setStatuses(prev => ({ ...prev, [data.site]: data.status }));
-      } else if (data.type === 'results') {
+    eventSource.addEventListener('results', (event) => {
+      const data = JSON.parse(event.data);
+      if (data && data.data) {
         const resultsWithId = data.data.map((r, i) => ({ ...r, id: `${data.site}-${i}-${Date.now()}` }));
         setResults(prev => [...prev, ...resultsWithId]);
-      } else if (data.type === 'done') {
-        eventSource.close();
-        setIsSearching(false);
       }
-    };
+    });
+
+    eventSource.addEventListener('done', () => {
+      eventSource.close();
+      setIsSearching(false);
+    });
 
     eventSource.onerror = () => {
       eventSource.close();

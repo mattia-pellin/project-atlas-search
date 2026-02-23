@@ -62,9 +62,23 @@ class FetchLinksRequest(BaseModel):
     url: str
 
 @router.post("/links")
-async def fetch_links(req: FetchLinksRequest):
+async def fetch_links(req: FetchLinksRequest, db: AsyncSession = Depends(get_db)):
     try:
-        res = await get_links_for_url(req.site, req.url)
+        # Extract site key from custom_name or fallback to raw string
+        result = await db.execute(select(SiteCredential).where(
+            (SiteCredential.custom_name == req.site) | (SiteCredential.site_key == req.site)
+        ))
+        cred = result.scalars().first()
+        site_key = cred.site_key if cred else req.site
+        
+        # Pass kwargs to crawler
+        kw = {}
+        if cred and cred.username:
+            kw["username"] = cred.username
+        if cred and cred.password:
+            kw["password"] = cred.password
+            
+        res = await get_links_for_url(site_key, req.url, **kw)
         return res
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

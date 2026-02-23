@@ -63,11 +63,11 @@ class CrawlerManager:
         await asyncio.gather(*tasks, return_exceptions=True)
         await yield_queue.put({"type": "done"})
 
-async def get_links_for_url(site: str, url: str) -> Dict[str, Any]:
+async def get_links_for_url(site: str, url: str, **kwargs) -> Dict[str, Any]:
     if site not in REGISTERED_CRAWLERS:
         raise ValueError(f"Unknown site: {site}")
         
-    crawler = REGISTERED_CRAWLERS[site]()
+    crawler = REGISTERED_CRAWLERS[site](**kwargs)
     await crawler.init_session()
     try:
         await crawler.login()
