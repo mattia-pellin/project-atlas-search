@@ -1,35 +1,55 @@
 import asyncio
-import cloudscraper
 from bs4 import BeautifulSoup
 from typing import Dict, Any, List
 import urllib.parse
 from backend.crawlers.base import BaseCrawler
 
+import dns.resolver
+
 class Torrent1337xCrawler(BaseCrawler):
     name = "1337x"
+    # Using explicit .to domain as requested
     base_url = "https://1337x.to"
     
     def __init__(self, username=None, password=None):
         super().__init__(username, password)
-        # We use cloudscraper to bypass standard Cloudflare challenges on 1337x
-        self.scraper = cloudscraper.create_scraper(browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False})
 
     async def init_session(self):
-        pass # Not using curl_cffi for this one
-        
-    async def close(self):
-        pass
+        # We rely on BaseCrawler's curl_cffi session to bypass standard protections
+        await super().init_session()
 
+        # Specify Google DNS resolution for 1337x.to
+        try:
+            res = dns.resolver.Resolver()
+            res.nameservers = ['8.8.8.8', '8.8.4.4']
+            ans = res.resolve('1337x.to', 'A')
+            ip = ans[0].to_text()
+            
+            # libcurl CURLOPT_RESOLVE option is 10203
+            resolve_list = [f"1337x.to:443:{ip}", f"1337x.to:80:{ip}"]
+            
+            # Close original session and recreate with custom options
+            if hasattr(self, 'session') and self.session:
+                await self.session.close()
+            
+            from curl_cffi.requests import AsyncSession
+            self.session = AsyncSession(
+                impersonate="chrome120", 
+                curl_options={10203: resolve_list}
+            )
+        except Exception as e:
+            # Fallback to standard resolution if dns.resolver fails
+            pass
+        
     async def search(self, query: str, limit: int = 50) -> List[Dict[str, Any]]:
-        # 1337x search URL
         url = f"{self.base_url}/search/{urllib.parse.quote(query)}/1/"
         
-        def fetch():
-            return self.scraper.get(url, timeout=10)
+        try:
+            res = await self.session.get(url, timeout=15)
+        except Exception:
+            return []
             
-        res = await asyncio.to_thread(fetch)
         soup = BeautifulSoup(res.text, 'lxml')
-        
         table = soup.find('table', class_='table-list')
         if not table:
             return []
@@ -50,8 +70,8 @@ class Torrent1337xCrawler(BaseCrawler):
                  results.append({
                      "title": title,
                      "url": link,
-                     "poster": None, # 1337x doesn't reliably show posters on search
-                     "quality": size, # We use the size as quality indicator for torrents
+                     "poster": None,
+                     "quality": size,
                      "date": date,
                      "site": self.name
                  })
@@ -59,10 +79,7 @@ class Torrent1337xCrawler(BaseCrawler):
         return results
 
     async def fetch_links(self, url: str) -> Dict[str, Any]:
-        def fetch():
-            return self.scraper.get(url, timeout=10)
-            
-        res = await asyncio.to_thread(fetch)
+        res = await self.session.get(url, timeout=15)
         soup = BeautifulSoup(res.text, 'lxml')
         
         # Look for magnet link

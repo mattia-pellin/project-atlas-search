@@ -36,26 +36,39 @@ class DLECrawler(BaseCrawler):
         soup = BeautifulSoup(res.text, 'lxml')
         
         results = []
-        for article in soup.find_all('article'):
+        articles = soup.select('article, div.item, div.short_story, div.news, a.sres-wrap')
+        for article in articles:
             if len(results) >= limit:
                 break
                 
             title_tag = article.find('h2') or article.find('h3') or article.find('h1') or article.find('a', class_='title')
-            if not title_tag:
+            
+            # Fallback for sites like HDItaliaBits where the container itself is an 'a' tag wrapping an 'h2'
+            a_tag = None
+            if title_tag:
+                 if title_tag.name == 'a':
+                     a_tag = title_tag
+                 else:
+                     a_tag = title_tag.find('a')
+            
+            # If the title is just text inside h2/h3 and the wrapper is 'a', use the wrapper
+            if not a_tag and article.name == 'a':
+                 a_tag = article
+                 title_text = title_tag.text.strip() if title_tag else article.text.strip()
+            # If no 'a' tag whatsoever was found, skip
+            elif not a_tag:
                  continue
+            else:
+                 title_text = a_tag.text.strip()
                  
-            a_tag = title_tag if title_tag.name == 'a' else title_tag.find('a')
-            if not a_tag:
-                 continue
-                 
-            title = a_tag.text.strip()
+            title = title_text
             link = a_tag.get('href', '')
             if not link.startswith('http'):
                 link = self.base_url.rstrip('/') + link
                 
             # Try to find poster
             poster = None
-            poster_img = article.select_first('.img-box img, .poster img, .image-box img, a.main-image img')
+            poster_img = article.select_one('.img-box img, .poster img, .image-box img, a.main-image img')
             if not poster_img:
                 poster_img = article.find('img')
             if poster_img:
