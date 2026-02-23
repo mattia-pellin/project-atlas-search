@@ -10,4 +10,6 @@ aiosqlite
 pydantic
 websockets
 sse-starlette
-cloudscraper
+dnspython
+guessit
+dateparser

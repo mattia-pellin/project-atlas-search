@@ -45,11 +45,11 @@ class Torrent1337xCrawler(BaseCrawler):
         url = f"{self.base_url}/search/{urllib.parse.quote(query)}/1/"
         
         try:
-            res = await self.session.get(url, timeout=15)
+            html = await self.fetch_html(url)
         except Exception:
             return []
             
-        soup = BeautifulSoup(res.text, 'lxml')
+        soup = BeautifulSoup(html, 'lxml')
         table = soup.find('table', class_='table-list')
         if not table:
             return []
@@ -63,15 +63,16 @@ class Torrent1337xCrawler(BaseCrawler):
                  title = a_tags[1].text
                  link = self.base_url + a_tags[1]['href']
                  size_td = row.find('td', class_='size')
-                 size = size_td.contents[0].strip() if size_td else 'Unknown'
+                 quality = self.extract_quality(title)
+                     
                  date_td = row.find('td', class_='coll-date')
-                 date = date_td.text.strip() if date_td else 'Unknown'
+                 date = self.normalize_date(date_td.text.strip()) if date_td else 'Unknown'
                  
                  results.append({
                      "title": title,
                      "url": link,
                      "poster": None,
-                     "quality": size,
+                     "quality": quality,
                      "date": date,
                      "site": self.name
                  })
@@ -79,8 +80,8 @@ class Torrent1337xCrawler(BaseCrawler):
         return results
 
     async def fetch_links(self, url: str) -> Dict[str, Any]:
-        res = await self.session.get(url, timeout=15)
-        soup = BeautifulSoup(res.text, 'lxml')
+        html = await self.fetch_html(url)
+        soup = BeautifulSoup(html, 'lxml')
         
         # Look for magnet link
         magnet = None
@@ -93,9 +94,5 @@ class Torrent1337xCrawler(BaseCrawler):
         links = []
         if magnet:
              links.append(magnet)
-             
-        for a in soup.find_all('a', href=True):
-            if a['href'].endswith('.torrent'):
-                 links.append(a['href'])
-                 
+
         return {"links": links, "password": None}

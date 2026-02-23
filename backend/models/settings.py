@@ -10,6 +10,7 @@ class SiteCredential(Base):
     is_enabled = Column(Boolean, default=True)
     username = Column(String, nullable=True)
     password = Column(String, nullable=True)
+    custom_url = Column(String, nullable=True)
     requires_login = Column(Boolean, default=True)
 
 class AppSettings(Base):
@@ -17,3 +18,4 @@ class AppSettings(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     max_results = Column(Integer, default=50)
+    dns_servers = Column(String, default="system")

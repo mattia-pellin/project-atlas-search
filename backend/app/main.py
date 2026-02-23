@@ -26,10 +26,23 @@ app.add_middleware(
 
 app.include_router(api_router, prefix="/api")
 
-# Mount frontend build if it exists
-frontend_build_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "frontend", "dist")
-
 @app.get("/api/health")
 async def health_check():
     return {"status": "ok"}
 
+# Mount frontend build if it exists
+frontend_build_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "frontend", "dist")
+if os.path.isdir(frontend_build_path):
+    from fastapi.staticfiles import StaticFiles
+    from fastapi.responses import FileResponse
+
+    # Serve static assets (JS, CSS, images)
+    app.mount("/assets", StaticFiles(directory=os.path.join(frontend_build_path, "assets")), name="assets")
+
+    # SPA catch-all: serve index.html for any non-API route
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        file_path = os.path.join(frontend_build_path, full_path)
+        if full_path and os.path.isfile(file_path):
+            return FileResponse(file_path)
+        return FileResponse(os.path.join(frontend_build_path, "index.html"))

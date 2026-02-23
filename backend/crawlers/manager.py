@@ -2,9 +2,10 @@ import asyncio
 from typing import List, Dict, Type, Any
 from backend.crawlers.base import BaseCrawler
 from backend.models.api import SearchResult, SearchStatus
-from backend.crawlers.impl.italian_sites import (
-    HDItaliaBitsCrawler, LostPlanetCrawler, LaForestaIncantataCrawler, HD4MeCrawler
-)
+from backend.crawlers.impl.hditaliabits import HDItaliaBitsCrawler
+from backend.crawlers.impl.lostplanet import LostPlanetCrawler
+from backend.crawlers.impl.laforestaincantata import LaForestaIncantataCrawler
+from backend.crawlers.impl.hd4me import HD4MeCrawler
 from backend.crawlers.impl.torrent_1337x import Torrent1337xCrawler
 
 REGISTERED_CRAWLERS: Dict[str, Type[BaseCrawler]] = {
@@ -16,9 +17,10 @@ REGISTERED_CRAWLERS: Dict[str, Type[BaseCrawler]] = {
 }
 
 class CrawlerManager:
-    def __init__(self, query: str, limit: int = 50, credentials_map: Dict[str, Any] = None):
+    def __init__(self, query: str, limit: int = 50, credentials_map: Dict[str, Any] = None, dns_servers: str = "system"):
         self.query = query
         self.limit = limit
+        self.dns_servers = dns_servers
         self.crawlers = {}
         for name, cls in REGISTERED_CRAWLERS.items():
             creds = credentials_map.get(name, {}) if credentials_map else {}
@@ -29,6 +31,9 @@ class CrawlerManager:
             crawler = cls(username=creds.get("username"), password=creds.get("password"))
             if creds.get("custom_name"):
                 crawler.name = creds.get("custom_name")
+            if creds.get("custom_url"):
+                crawler.base_url = creds.get("custom_url").rstrip("/")
+            crawler.dns_servers = self.dns_servers
             self.crawlers[name] = crawler
 
     async def _run_crawler(self, name: str, crawler: BaseCrawler, yield_queue: asyncio.Queue):
@@ -41,7 +46,7 @@ class CrawlerManager:
             # Login if needed (abstracted in base class, handles credentials)
             login_success = await crawler.login()
             if not login_success:
-                raise Exception("Login failed")
+                raise Exception("Login required/failed")
                 
             results = await crawler.search(self.query, self.limit)
             results = results[:self.limit] # Enforce strict limit
@@ -63,11 +68,15 @@ class CrawlerManager:
         await asyncio.gather(*tasks, return_exceptions=True)
         await yield_queue.put({"type": "done"})
 
-async def get_links_for_url(site: str, url: str, **kwargs) -> Dict[str, Any]:
+async def get_links_for_url(site: str, url: str, dns_servers: str = "system", **kwargs) -> Dict[str, Any]:
     if site not in REGISTERED_CRAWLERS:
         raise ValueError(f"Unknown site: {site}")
         
+    custom_url = kwargs.pop("custom_url", None)
     crawler = REGISTERED_CRAWLERS[site](**kwargs)
+    if custom_url:
+        crawler.base_url = custom_url.rstrip("/")
+    crawler.dns_servers = dns_servers
     await crawler.init_session()
     try:
         await crawler.login()

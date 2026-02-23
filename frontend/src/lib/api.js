@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:8080/api';
+const API_BASE = '/api';
 
 export const fetchSettings = async () => {
     const res = await fetch(`${API_BASE}/settings`);

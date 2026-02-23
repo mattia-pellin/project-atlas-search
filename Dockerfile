@@ -7,15 +7,20 @@ COPY frontend/ ./
 RUN npm run build
 
 # Stage 2: Build the backend and serve everything
-FROM python:3.14.3-slim
+FROM python:3.13-slim
 WORKDIR /app
 
-# Install system dependencies required for building some python packages
-RUN apt-get update && apt-get install -y \
-    gcc \
-    libffi-dev \
-    libssl-dev \
-    && rm -rf /var/lib/apt/lists/*
+# Install Google Chrome + Xvfb (virtual display for headed Chrome in Docker)
+# Headed Chrome bypasses Cloudflare much better than headless mode
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        wget ca-certificates fonts-liberation xvfb && \
+    wget -q -O /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
+    apt-get install -y /tmp/chrome.deb && \
+    rm /tmp/chrome.deb && \
+    rm -f /usr/bin/wget && \
+    rm -rf /var/lib/apt/lists/* && \
+    google-chrome-stable --version
 
 # Copy backend requirements and install them
 COPY backend/requirements.txt .
