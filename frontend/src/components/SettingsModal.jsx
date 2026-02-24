@@ -186,93 +186,83 @@ export default function SettingsModal({ onClose }) {
                     {/* GLOBAL SETTINGS */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
 
-                        {/* Max Results */}
-                        <div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.8rem' }}>
-                                <label style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Max Results per Engine</label>
-                                <span style={{ fontSize: '1rem', color: 'var(--accent-color)', fontWeight: 600 }}>{maxResults}</span>
-                            </div>
-                            <input
-                                type="range"
-                                min="1"
-                                max="100"
-                                step="1"
-                                list="max-results-markers"
-                                value={maxResults}
-                                onChange={e => setMaxResults(e.target.value)}
-                                style={{ width: '100%', accentColor: 'var(--accent-color)', cursor: 'pointer' }}
-                            />
-                            <datalist id="max-results-markers" style={{ display: 'flex', justifyContent: 'space-between', color: 'rgba(255,255,255,0.4)', fontSize: '0.7rem', marginTop: '0.4rem' }}>
-                                <option value="1" label="1"></option>
-                                <option value="25" label="25"></option>
-                                <option value="50" label="50"></option>
-                                <option value="75" label="75"></option>
-                                <option value="100" label="100"></option>
-                            </datalist>
-                        </div>
-
-                        {/* Search Cache */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-                            <label style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Search Cache</label>
-
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
-                                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '0.5rem' }} onClick={e => e.stopPropagation()}>
-                                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: cacheEnabled ? 'var(--accent-color)' : 'var(--text-secondary)' }}>{cacheEnabled ? 'ON' : 'OFF'}</span>
-                                    <div style={{
-                                        position: 'relative', width: '40px', height: '22px',
-                                        background: cacheEnabled ? 'var(--accent-color)' : 'rgba(255,255,255,0.2)',
-                                        borderRadius: '20px', transition: 'background 0.3s'
-                                    }}>
-                                        <div style={{
-                                            position: 'absolute', top: '2px', left: cacheEnabled ? '20px' : '2px',
-                                            width: '18px', height: '18px', background: 'white',
-                                            borderRadius: '50%', transition: 'left 0.3s ease',
-                                            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                                        }}></div>
-                                    </div>
-                                    <input
-                                        type="checkbox"
-                                        checked={cacheEnabled}
-                                        onChange={e => setCacheEnabled(e.target.checked)}
-                                        style={{ display: 'none' }}
-                                    />
-                                </label>
-
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        max="1440"
-                                        value={cacheTtl}
-                                        onChange={e => setCacheTtl(e.target.value)}
-                                        disabled={!cacheEnabled}
-                                        style={{
-                                            width: '60px', padding: '0.3rem 0.5rem', borderRadius: '6px',
-                                            border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.3)',
-                                            color: 'white', outline: 'none', opacity: cacheEnabled ? 1 : 0.5,
-                                            fontSize: '0.9rem', fontWeight: 500, textAlign: 'center'
-                                        }}
-                                    />
-                                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', opacity: cacheEnabled ? 1 : 0.5 }}>mins TTL</span>
+                        {/* TWO-COLUMN SLIDERS: Max Results & Cache */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+                            {/* Max Results */}
+                            <div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.8rem' }}>
+                                    <label style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Max Results per Engine</label>
+                                    <span style={{ fontSize: '1rem', color: 'var(--accent-color)', fontWeight: 600 }}>{maxResults}</span>
                                 </div>
+                                <input
+                                    type="range"
+                                    min="1"
+                                    max="100"
+                                    step="1"
+                                    value={maxResults}
+                                    onChange={e => setMaxResults(e.target.value)}
+                                    style={{ width: '100%', accentColor: 'var(--accent-color)', cursor: 'pointer' }}
+                                />
+                            </div>
 
-                                {/* Empty Cache Action */}
-                                <button
-                                    type="button"
-                                    onClick={handleClearCache}
-                                    disabled={clearingCache}
-                                    style={{
-                                        display: 'flex', alignItems: 'center', gap: '0.4rem',
-                                        padding: '0.3rem 0.8rem', borderRadius: '6px',
-                                        border: '1px solid rgba(239, 68, 68, 0.3)', background: 'rgba(239, 68, 68, 0.1)',
-                                        color: '#ef4444', fontSize: '0.8rem', fontWeight: 600,
-                                        cursor: clearingCache ? 'not-allowed' : 'pointer', transition: 'all 0.2s', opacity: clearingCache ? 0.7 : 1
-                                    }}
-                                    title="Empty Cache Database"
-                                >
-                                    {clearingCache ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                                    {cacheMessage ? (cacheMessage.includes('Failed') ? 'Error' : 'Cleared!') : 'Empty Cache'}
-                                </button>
+                            {/* Search Cache */}
+                            <div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                                        <label style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Search Cache</label>
+
+                                        <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '0.4rem' }} onClick={e => e.stopPropagation()}>
+                                            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: cacheEnabled ? 'var(--accent-color)' : 'var(--text-secondary)' }}>{cacheEnabled ? 'ON' : 'OFF'}</span>
+                                            <div style={{
+                                                position: 'relative', width: '30px', height: '16px',
+                                                background: cacheEnabled ? 'var(--accent-color)' : 'rgba(255,255,255,0.2)',
+                                                borderRadius: '16px', transition: 'background 0.3s'
+                                            }}>
+                                                <div style={{
+                                                    position: 'absolute', top: '2px', left: cacheEnabled ? '16px' : '2px',
+                                                    width: '12px', height: '12px', background: 'white',
+                                                    borderRadius: '50%', transition: 'left 0.3s ease',
+                                                    boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                                                }}></div>
+                                            </div>
+                                            <input
+                                                type="checkbox"
+                                                checked={cacheEnabled}
+                                                onChange={e => setCacheEnabled(e.target.checked)}
+                                                style={{ display: 'none' }}
+                                            />
+                                        </label>
+
+                                        <button
+                                            type="button"
+                                            onClick={handleClearCache}
+                                            disabled={clearingCache}
+                                            style={{
+                                                display: 'flex', alignItems: 'center', gap: '0.3rem',
+                                                padding: '0.2rem 0.5rem', borderRadius: '4px',
+                                                border: '1px solid rgba(239, 68, 68, 0.3)', background: 'rgba(239, 68, 68, 0.1)',
+                                                color: '#ef4444', fontSize: '0.7rem', fontWeight: 600,
+                                                cursor: clearingCache ? 'not-allowed' : 'pointer', transition: 'all 0.2s', opacity: clearingCache ? 0.7 : 1
+                                            }}
+                                            title="Empty Cache Database"
+                                        >
+                                            {clearingCache ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                                            {cacheMessage ? (cacheMessage.includes('Failed') ? 'Error' : 'Empty!') : 'Empty'}
+                                        </button>
+                                    </div>
+
+                                    <span style={{ fontSize: '1rem', color: 'var(--accent-color)', fontWeight: 600 }}>{cacheTtl} mins</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="60"
+                                    max="1440"
+                                    step="60"
+                                    value={cacheTtl}
+                                    onChange={e => setCacheTtl(e.target.value)}
+                                    disabled={!cacheEnabled}
+                                    style={{ width: '100%', accentColor: 'var(--accent-color)', cursor: 'pointer', opacity: cacheEnabled ? 1 : 0.5 }}
+                                />
                             </div>
                         </div>
 
