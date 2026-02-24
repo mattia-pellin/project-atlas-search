@@ -13,3 +13,6 @@ sse-starlette
 dnspython
 guessit
 dateparser
+pytest
+pytest-asyncio
+httpx

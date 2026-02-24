@@ -87,7 +87,7 @@ async def search_stream(request: Request, q: str, db: AsyncSession = Depends(get
                             db.add(cached_entry)
                         
                         cached_entry.results_json = json.dumps(local_accumulated_results)
-                        cached_entry.timestamp = datetime.datetime.utcnow()
+                        cached_entry.timestamp = datetime.datetime.now(datetime.timezone.utc)
                         await db.commit()
                     except Exception as e:
                         print(f"Failed to cache search results: {e}")

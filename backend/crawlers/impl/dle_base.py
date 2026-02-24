@@ -30,10 +30,15 @@ class DLECrawler(BaseCrawler):
         # Pre-warm session with CF cookies by fetching homepage through the bypass
         await self.fetch_html(self.base_url)
         
+        # Use DLE advanced search parameters to bypass short-word limits
+        # all_word_seach=1 enforces exact match, and titleonly=3 limits search to titles only
         search_data = {
             "do": "search",
             "subaction": "search",
-            "story": query
+            "story": query,
+            "full_search": "1",
+            "all_word_seach": "1",
+            "titleonly": "3"
         }
         search_url = f"{self.base_url.rstrip('/')}/index.php?do=search"
         res = await self.session.post(search_url, data=search_data, headers={"Referer": self.base_url})

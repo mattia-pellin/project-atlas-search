@@ -43,6 +43,28 @@ class CrawlerManager:
             await yield_queue.put(SearchStatus(site=current_name, status="searching"))
             await crawler.init_session()
             
+            # Pre-flight navigation check to handle banned/offline sites gracefully
+            from curl_cffi.requests.errors import RequestsError
+            try:
+                # 15 seconds max to reach the homepage or consider it offline/banned
+                test_res = await crawler.session.get(crawler.base_url, timeout=15)
+                # Even if 403 (CF protection), the connection succeeded. 
+                # Timeouts usually throw RequestsError.
+            except RequestsError as req_e:
+                err_str = str(req_e).lower()
+                if "time out" in err_str or "timed out" in err_str or "could not connect" in err_str or "curl: (28)" in err_str or "curl: (7)" in err_str:
+                    await yield_queue.put(SearchStatus(site=current_name, status="warning", error_message="Crawler temporarily banned or site offline (Connection Timeout). Ignoring."))
+                    return
+                else:
+                    raise req_e # bubble up other curl errors
+            except Exception as e:
+                # TimeoutError or generic exception handling
+                err_str = str(e).lower()
+                if "time" in err_str or "connect" in err_str:
+                    await yield_queue.put(SearchStatus(site=current_name, status="warning", error_message="Crawler temporarily banned or site offline (Connection Timeout). Ignoring."))
+                    return
+                raise e
+
             # Login if needed (abstracted in base class, handles credentials)
             login_success = await crawler.login()
             if not login_success:

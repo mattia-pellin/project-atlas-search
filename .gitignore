@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Project Atlas Search specific
+credentials.json
+atlas_search.db
+venv/
+__pycache__/
+.pytest_cache/
