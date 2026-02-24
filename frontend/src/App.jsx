@@ -13,6 +13,7 @@ function App() {
   const [results, setResults] = useState([]);
   const [statuses, setStatuses] = useState({});
   const [showSettings, setShowSettings] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
 
   const [fetchingLinksFor, setFetchingLinksFor] = useState(null);
   const [fetchedLinks, setFetchedLinks] = useState({});
@@ -31,6 +32,7 @@ function App() {
     setFetchedLinks({});
     setQualityFilter('All');
     setSiteFilter('All');
+    setHasSearched(false);
 
     const eventSource = new EventSource(`${API_BASE}/search/stream?q=${encodeURIComponent(query)}`);
 
@@ -62,11 +64,13 @@ function App() {
     eventSource.addEventListener('done', () => {
       eventSource.close();
       setIsSearching(false);
+      setHasSearched(true);
     });
 
     eventSource.onerror = () => {
       eventSource.close();
       setIsSearching(false);
+      setHasSearched(true);
     };
   };
 
@@ -134,7 +138,7 @@ function App() {
             const tooltip = status === 'error'
               ? `Error: ${info.error || 'Unknown'}`
               : status === 'warning'
-                ? `Warning: ${info.error || 'Soft IP Ban / Timeout'}`
+                ? `Banned or Offline: ${info.error || 'Connection Refused'}`
                 : status === 'completed'
                   ? `Completed: ${info.count ?? 0} results`
                   : 'Searching...';
@@ -143,12 +147,8 @@ function App() {
                 title={tooltip}
                 style={{
                   display: 'flex', alignItems: 'center', gap: '0.5rem',
-                  background: status === 'error' ? 'rgba(239, 68, 73, 0.1)' :
-                    status === 'warning' ? 'rgba(245, 158, 11, 0.1)' :
-                      'rgba(255,255,255,0.05)',
-                  border: status === 'error' ? '1px solid rgba(239, 68, 73, 0.3)' :
-                    status === 'warning' ? '1px solid rgba(245, 158, 11, 0.3)' :
-                      '1px solid transparent',
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid transparent',
                   padding: '0.4rem 0.8rem', borderRadius: '20px', fontSize: '0.8rem',
                   cursor: 'help',
                   transition: 'all 0.2s'
@@ -161,17 +161,10 @@ function App() {
                 }}></div>
                 <span style={{
                   textTransform: 'capitalize',
-                  color: status === 'error' ? '#ef4444' :
-                    status === 'warning' ? '#f59e0b' :
-                      'var(--text-secondary)',
-                  fontWeight: (status === 'completed' && info.count > 0) ? '600' : 'normal'
+                  color: 'var(--text-secondary)',
+                  fontWeight: 'normal'
                 }}>
                   {site}
-                  {status === 'completed' && info.count !== undefined && (
-                    <span style={{ marginLeft: '4px', opacity: 0.8, fontSize: '0.75rem' }}>
-                      ({info.count})
-                    </span>
-                  )}
                 </span>
               </div>
             );
@@ -188,7 +181,7 @@ function App() {
         />
       )}
 
-      {!isSearching && results.length === 0 && query && (
+      {!isSearching && results.length === 0 && hasSearched && (
         <div style={{ textAlign: 'center', color: 'var(--text-secondary)', marginTop: '2rem' }}>
           No results found for "{query}".
         </div>

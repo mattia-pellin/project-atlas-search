@@ -46,10 +46,9 @@ class CrawlerManager:
             # Pre-flight navigation check to handle banned/offline sites gracefully
             from curl_cffi.requests.errors import RequestsError
             try:
-                test_res = await crawler.session.get(crawler.base_url, timeout=15)
-                if test_res.status_code == 403:
-                    await yield_queue.put(SearchStatus(site=current_name, status="warning", error_message="Soft IP Ban detected (403 Forbidden). Try changing IP/VPN."))
-                    return
+                # Only check for connection issues (timeout, refuse). 
+                # 403 (Cloudflare) should proceed to crawler.search() where bypass is handled.
+                await crawler.session.get(crawler.base_url, timeout=15)
             except RequestsError as req_e:
                 err_str = str(req_e).lower()
                 if "time out" in err_str or "timed out" in err_str or "could not connect" in err_str or "curl: (28)" in err_str or "curl: (7)" in err_str:
