@@ -22,7 +22,8 @@ class DLECrawler(BaseCrawler):
             "login": "submit",
             "login_not_save": "1"
         }
-        res = await self.session.post(self.base_url, data=login_data, headers={"Referer": self.base_url})
+        login_url = f"{self.base_url.rstrip('/')}/index.php?do=login"
+        res = await self.session.post(login_url, data=login_data, headers={"Referer": self.base_url})
         return self.username.lower().split('@')[0] in res.text.lower()
 
     async def search(self, query: str, limit: int = 50) -> List[Dict[str, Any]]:
@@ -39,7 +40,7 @@ class DLECrawler(BaseCrawler):
         soup = BeautifulSoup(res.text, 'lxml')
         
         results = []
-        articles = soup.select('article, div.item, div.short_story, div.news, a.sres-wrap')
+        articles = soup.select('article, div.item, div.short_story, div.news, a.sres-wrap, div.titlecontrol')
         for article in articles:
             if len(results) >= limit:
                 break
@@ -56,7 +57,11 @@ class DLECrawler(BaseCrawler):
                      a_tag = title_tag
                      title_text = title_tag.text.strip()
                  else:
-                     a_tag = title_tag.find('a')
+                     a_tag = None
+                     for candidate in title_tag.find_all('a'):
+                         if 'do=favorites' not in candidate.get('href', ''):
+                             a_tag = candidate
+                             break
                      if a_tag:
                          title_text = a_tag.text.strip()
                      else:
@@ -70,7 +75,12 @@ class DLECrawler(BaseCrawler):
                      
             # Final fallback: any link in the article
             if not a_tag:
-                 a_tag = article.find('a')
+                 for candidate in article.find_all('a'):
+                     if 'do=favorites' not in candidate.get('href', ''):
+                         a_tag = candidate
+                         if title_text == "Unknown":
+                             title_text = candidate.text.strip()
+                         break
                  
             # If no 'a' tag whatsoever was found, skip
             if not a_tag:
@@ -82,18 +92,25 @@ class DLECrawler(BaseCrawler):
                 link = self.base_url.rstrip('/') + link
 
             # Skip non-content pages (category pages, rules, etc.)
-            if not link.rstrip('/').endswith('.html'):
+            if not link.rstrip('/').endswith('.html') and '?newsid=' not in link:
                 continue
             _skip_titles = ('area vendite', 'regolamento', 'registra', 'login', 'faq')
             if any(s in title.lower() for s in _skip_titles):
                 continue
                 
+            # Determine search scope for poster and date
+            search_scope = article
+            if 'titlecontrol' in (article.get('class') or []):
+                next_sib = article.find_next_sibling('div')
+                if next_sib and 'general_box' in (next_sib.get('class') or []):
+                    search_scope = next_sib
+
             # Try to find poster
             poster = None
             skip_patterns = ('/dleimages/', '/templates/', 'favicon', 'logo', 'noavatar', 'plus_fav', 'btn_', 'icon_')
 
             # Best: image whose alt matches the article title
-            for img in article.find_all('img'):
+            for img in search_scope.find_all('img'):
                 alt = (img.get('alt') or '').strip()
                 if alt and alt.lower() == title.lower():
                     raw_src = img.get('data-src') or img.get('src') or ''
@@ -103,7 +120,7 @@ class DLECrawler(BaseCrawler):
 
             # Fallback: specific poster selectors
             if not poster:
-                poster_img = article.select_one('.img-box img, .poster img, .image-box img, a.main-image img')
+                poster_img = search_scope.select_one('.img-box img, .poster img, .image-box img, a.main-image img')
                 if poster_img:
                     raw_src = poster_img.get('data-src') or poster_img.get('src') or ''
                     if raw_src and not any(p in raw_src.lower() for p in skip_patterns):
@@ -111,7 +128,7 @@ class DLECrawler(BaseCrawler):
 
             # Last resort: first valid image
             if not poster:
-                for img in article.find_all('img'):
+                for img in search_scope.find_all('img'):
                     raw_src = img.get('data-src') or img.get('src') or ''
                     if raw_src and not any(p in raw_src.lower() for p in skip_patterns):
                         poster = raw_src
@@ -126,14 +143,14 @@ class DLECrawler(BaseCrawler):
             
             # Extract Date from article text
             date = "Unknown"
-            date_match = re.search(r'\b(\d{1,2})[/-](\d{1,2})[/-](\d{4})\b', article.text)
+            date_match = re.search(r'\b(\d{1,2})[/-](\d{1,2})[/-](\d{4})\b', search_scope.text)
             if date_match:
                 # Normalize to DD/MM/YYYY
                 d, m, y = date_match.groups()
                 date = f"{int(d):02d}/{int(m):02d}/{y}"
             else:
                 # Try finding time tag
-                time_tag = article.find('time')
+                time_tag = search_scope.find('time')
                 if time_tag and time_tag.text:
                     date = self.normalize_date(time_tag.text.strip())
 
@@ -160,9 +177,11 @@ class DLECrawler(BaseCrawler):
 
     async def fetch_links(self, url: str) -> Dict[str, Any]:
         """
-        Trigger tanksForNews AJAX thanks, re-fetch page, extract links
-        from hidden xfield divs and <a> tags. Works for DLE sites using
-        the custom tanksForNews mechanism (HDItalia, Lost Planet, etc.).
+        Trigger tanksForNews AJAX thanks, re-fetch page, extract links.
+        Strategy:
+          1. text_spoiler div following a <b>Links</b> (or similar) label
+          2. xfield containers (#campo-aggiuntivo, #campo-links-serie)
+          3. Article-wide fallback (<a> tags + raw text)
         """
         import logging
         logger = logging.getLogger(self.__class__.__name__)
@@ -180,41 +199,57 @@ class DLECrawler(BaseCrawler):
         except Exception as e:
             logger.warning(f"[{self.name}] Thanks call failed for {post_id}: {e}")
 
-        # 2. Re-fetch the page (xfield divs now populated by server)
+        # 2. Re-fetch the page
         html = await self.fetch_html(url)
         soup = BeautifulSoup(html, 'lxml')
-
-        # 3. Extract raw URLs from hidden xfield containers
-        raw_text = ""
-        for div_id in ("campo-aggiuntivo", "campo-links-serie"):
-            div = soup.find(id=div_id)
-            if div:
-                raw_text += " " + div.get_text(" ", strip=True)
 
         links: list[str] = []
         seen: set[str] = set()
 
-        for m in re.finditer(r'https?://[^\s<>"\']+', raw_text):
-            href = m.group(0).rstrip('.,;)')
-            if self._is_download_link(href) and href not in seen:
-                links.append(href)
-                seen.add(href)
-
-        # Fallback: scan the article body for raw URLs in text AND <a> tags
-        if not links:
-            root = soup.select_one('.full-text') or soup.select_one('#dle-content') or soup
-
-            # Scan <a> tags
-            for a in root.find_all('a', href=True):
+        def _collect_urls_from_element(el):
+            """Extract download URLs from an element's text and <a> tags."""
+            # Raw text URLs
+            raw_text = el.get_text(" ", strip=True)
+            for m in re.finditer(r'https?://[^\s<>"\']+'  , raw_text):
+                href = m.group(0).rstrip('.,;)')
+                if self._is_download_link(href) and href not in seen:
+                    links.append(href)
+                    seen.add(href)
+            # <a> tag hrefs
+            for a in el.find_all('a', href=True):
                 href = a['href']
                 if self._is_download_link(href) and href not in seen:
                     links.append(href)
                     seen.add(href)
 
-            # Scan raw text for URLs (Lost Planet embeds links as plain text)
+        # 3a. Primary: find text_spoiler div(s) following a "Links" label
+        link_labels = ('links', 'link', 'download')
+        for b_tag in soup.find_all('b'):
+            if b_tag.get_text(strip=True).lower().rstrip(':') in link_labels:
+                spoiler = b_tag.find_next(class_='text_spoiler')
+                if spoiler:
+                    _collect_urls_from_element(spoiler)
+
+        # 3b. xfield containers
+        if not links:
+            for div_id in ("campo-aggiuntivo", "campo-links-serie"):
+                div = soup.find(id=div_id)
+                if div:
+                    _collect_urls_from_element(div)
+
+        # 3c. Fallback: scan the article body
+        if not links:
+            root = soup.select_one('.full-text') or soup.select_one('#dle-content') or soup
+            # <a> tags first
+            for a in root.find_all('a', href=True):
+                href = a['href']
+                if self._is_download_link(href) and href not in seen:
+                    links.append(href)
+                    seen.add(href)
+            # Raw text
             if not links:
                 body_text = root.get_text(" ", strip=True)
-                for m in re.finditer(r'https?://[^\s<>"\']+', body_text):
+                for m in re.finditer(r'https?://[^\s<>"\']+'  , body_text):
                     href = m.group(0).rstrip('.,;)')
                     if self._is_download_link(href) and href not in seen:
                         links.append(href)
@@ -236,7 +271,9 @@ class DLECrawler(BaseCrawler):
             return False
         try:
             from urllib.parse import urlparse
-            host = urlparse(href).netloc.lower().lstrip('www.')
+            host = urlparse(href).netloc.lower()
+            if host.startswith('www.'):
+                host = host[4:]
             return host in cls._DOWNLOAD_HOSTS
         except Exception:
             return False

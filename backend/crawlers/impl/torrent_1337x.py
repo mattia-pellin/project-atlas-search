@@ -42,7 +42,7 @@ class Torrent1337xCrawler(BaseCrawler):
             pass
         
     async def search(self, query: str, limit: int = 50) -> List[Dict[str, Any]]:
-        url = f"{self.base_url}/search/{urllib.parse.quote(query)}/1/"
+        url = f"{self.base_url}/sort-search/{urllib.parse.quote(query)}/seeders/desc/1/"
         
         try:
             html = await self.fetch_html(url)

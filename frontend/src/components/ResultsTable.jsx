@@ -3,11 +3,16 @@ import { Download, ChevronDown, ChevronUp, Loader2, Filter, ArrowUpDown, GripVer
 
 const HOSTER_ICONS = {
     magnet: { Icon: Magnet, color: '#ef4444' },
-    torrent: { Icon: Download, color: '#22c55e' },
-    'filecrypt.cc': { Icon: Shield, color: '#f59e0b' },
-    'filecrypt.co': { Icon: Shield, color: '#f59e0b' },
-    'keeplinks.org': { Icon: Link2, color: '#3b82f6' },
-    'keeplinks.co': { Icon: Link2, color: '#3b82f6' },
+    torrent: { Icon: Download, color: '#22c55e' }
+};
+
+const stringToColor = (str) => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hue = hash % 360;
+    return `hsl(${hue < 0 ? hue + 360 : hue}, 75%, 60%)`;
 };
 
 const getHosterDomain = (link) => {
@@ -71,9 +76,20 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
     }, []);
 
     // Derived Unique Values for Filters
+    const qualityRank = {
+        '2160p': 8, '4k': 8, '2160i': 7, '1080p': 6, '1080i': 5,
+        '720p': 4, '720i': 3, '576p': 2, '576i': 1, '480p': 0, '480i': -1, 'sd': -2, 'n/a': -3
+    };
+
     const uniqueValues = useMemo(() => {
+        const qualities = [...new Set(results.map(r => r.quality || 'N/A'))].filter(Boolean);
+        qualities.sort((a, b) => {
+            const ra = qualityRank[a.toLowerCase()] ?? -3;
+            const rb = qualityRank[b.toLowerCase()] ?? -3;
+            return rb - ra; // highest first
+        });
         return {
-            quality: [...new Set(results.map(r => r.quality || 'N/A'))].filter(Boolean).sort(),
+            quality: qualities,
             site: [...new Set(results.map(r => r.site))].filter(Boolean).sort()
         };
     }, [results]);
@@ -86,10 +102,7 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
             return true;
         });
 
-        const qualityRank = {
-            '2160p': 8, '4k': 8, '2160i': 7, '1080p': 6, '1080i': 5,
-            '720p': 4, '720i': 3, '576p': 2, '576i': 1, '480p': 0, '480i': -1, 'sd': -2, 'n/a': -3
-        };
+        // qualityRank is defined at component level above
 
         if (sortConfig.key) {
             filtered.sort((a, b) => {
@@ -296,7 +309,8 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
                                             const { Icon, color } = entry;
                                             return <Icon size={16} color={isActive ? '#fff' : color} />;
                                         }
-                                        return <img src={`https://www.google.com/s2/favicons?domain=${h}&sz=32`} alt={h} style={{ width: '16px', height: '16px', objectFit: 'contain', filter: isActive ? 'none' : 'grayscale(100%) opacity(0.8)' }} />;
+                                        const color = stringToColor(h);
+                                        return <Link2 size={16} color={isActive ? '#fff' : color} style={{ filter: isActive ? 'none' : 'opacity(0.8)' }} />;
                                     })()}
                                 </button>
                             );
@@ -348,7 +362,7 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
                                                                         checked={filters[col.id].has(val)}
                                                                         onChange={() => toggleFilter(col.id, val)}
                                                                     />
-                                                                    <span style={{ textTransform: col.id === 'site' ? 'capitalize' : 'uppercase' }}>{val}</span>
+                                                                    <span style={{ textTransform: col.id === 'site' ? 'capitalize' : 'none' }}>{val}</span>
                                                                 </label>
                                                             ))}
                                                         </div>
