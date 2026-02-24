@@ -138,7 +138,7 @@ function App() {
             const tooltip = status === 'error'
               ? `Error: ${info.error || 'Unknown'}`
               : status === 'warning'
-                ? `Banned or Offline: ${info.error || 'Connection Refused'}`
+                ? `Warning: ${info.error || 'Connection Refused'}`
                 : status === 'completed'
                   ? `Completed: ${info.count ?? 0} results`
                   : 'Searching...';
