@@ -23,6 +23,8 @@ export default function SettingsModal({ onClose }) {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
+    const [showAllDns, setShowAllDns] = useState(false);
+
     // New Cache Settings
     const [cacheEnabled, setCacheEnabled] = useState(true);
     const [cacheTtl, setCacheTtl] = useState(60);
@@ -182,144 +184,158 @@ export default function SettingsModal({ onClose }) {
 
                 <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                     {/* GLOBAL SETTINGS */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(250px, 1fr) 1.5fr', gap: '2rem', alignItems: 'start' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
 
-                        {/* LEFT COLUMN: Max Results & Cache */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                            {/* Max Results */}
-                            <div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                                    <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500, whiteSpace: 'nowrap' }}>Max Results per Engine</label>
-                                    <span style={{ fontSize: '0.85rem', color: 'var(--accent-color)', fontWeight: 600 }}>{maxResults}</span>
-                                </div>
-                                <input
-                                    type="range"
-                                    min="1"
-                                    max="100"
-                                    step="1"
-                                    list="max-results-markers"
-                                    value={maxResults}
-                                    onChange={e => setMaxResults(e.target.value)}
-                                    style={{ width: '100%', accentColor: 'var(--accent-color)', cursor: 'pointer' }}
-                                />
-                                <datalist id="max-results-markers" style={{ display: 'flex', justifyContent: 'space-between', color: 'rgba(255,255,255,0.4)', fontSize: '0.7rem', marginTop: '0.2rem' }}>
-                                    <option value="1" label="1"></option>
-                                    <option value="25" label="25"></option>
-                                    <option value="50" label="50"></option>
-                                    <option value="75" label="75"></option>
-                                    <option value="100" label="100"></option>
-                                </datalist>
+                        {/* Max Results */}
+                        <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.8rem' }}>
+                                <label style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Max Results per Engine</label>
+                                <span style={{ fontSize: '1rem', color: 'var(--accent-color)', fontWeight: 600 }}>{maxResults}</span>
                             </div>
+                            <input
+                                type="range"
+                                min="1"
+                                max="100"
+                                step="1"
+                                list="max-results-markers"
+                                value={maxResults}
+                                onChange={e => setMaxResults(e.target.value)}
+                                style={{ width: '100%', accentColor: 'var(--accent-color)', cursor: 'pointer' }}
+                            />
+                            <datalist id="max-results-markers" style={{ display: 'flex', justifyContent: 'space-between', color: 'rgba(255,255,255,0.4)', fontSize: '0.7rem', marginTop: '0.4rem' }}>
+                                <option value="1" label="1"></option>
+                                <option value="25" label="25"></option>
+                                <option value="50" label="50"></option>
+                                <option value="75" label="75"></option>
+                                <option value="100" label="100"></option>
+                            </datalist>
+                        </div>
 
-                            {/* Cache Settings */}
-                            <div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                                    <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Search Cache (TTL)</label>
+                        {/* Search Cache */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                            <label style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Search Cache</label>
 
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            max="1440"
-                                            value={cacheTtl}
-                                            onChange={e => setCacheTtl(e.target.value)}
-                                            disabled={!cacheEnabled}
-                                            style={{
-                                                width: '60px', padding: '0.2rem 0.4rem', borderRadius: '4px',
-                                                border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)',
-                                                color: 'var(--accent-color)', outline: 'none', opacity: cacheEnabled ? 1 : 0.5,
-                                                fontSize: '0.85rem', fontWeight: 600, textAlign: 'right'
-                                            }}
-                                        />
-                                        <span style={{ fontSize: '0.85rem', color: 'var(--accent-color)', fontWeight: 600 }}>mins</span>
-                                    </div>
-                                </div>
-
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.5rem' }}>
-                                    <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '0.5rem' }} onClick={e => e.stopPropagation()}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '0.5rem' }} onClick={e => e.stopPropagation()}>
+                                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: cacheEnabled ? 'var(--accent-color)' : 'var(--text-secondary)' }}>{cacheEnabled ? 'ON' : 'OFF'}</span>
+                                    <div style={{
+                                        position: 'relative', width: '40px', height: '22px',
+                                        background: cacheEnabled ? 'var(--accent-color)' : 'rgba(255,255,255,0.2)',
+                                        borderRadius: '20px', transition: 'background 0.3s'
+                                    }}>
                                         <div style={{
-                                            position: 'relative', width: '36px', height: '20px',
-                                            background: cacheEnabled ? 'var(--accent-color)' : 'rgba(255,255,255,0.2)',
-                                            borderRadius: '20px', transition: 'background 0.3s'
-                                        }}>
-                                            <div style={{
-                                                position: 'absolute', top: '2px', left: cacheEnabled ? '18px' : '2px',
-                                                width: '16px', height: '16px', background: 'white',
-                                                borderRadius: '50%', transition: 'left 0.3s ease',
-                                                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                                            }}></div>
-                                        </div>
-                                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: cacheEnabled ? 'var(--accent-color)' : 'var(--text-secondary)' }}>{cacheEnabled ? 'ON' : 'OFF'}</span>
-                                        <input
-                                            type="checkbox"
-                                            checked={cacheEnabled}
-                                            onChange={e => setCacheEnabled(e.target.checked)}
-                                            style={{ display: 'none' }}
-                                        />
-                                    </label>
+                                            position: 'absolute', top: '2px', left: cacheEnabled ? '20px' : '2px',
+                                            width: '18px', height: '18px', background: 'white',
+                                            borderRadius: '50%', transition: 'left 0.3s ease',
+                                            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                                        }}></div>
+                                    </div>
+                                    <input
+                                        type="checkbox"
+                                        checked={cacheEnabled}
+                                        onChange={e => setCacheEnabled(e.target.checked)}
+                                        style={{ display: 'none' }}
+                                    />
+                                </label>
 
-                                    {/* Empty Cache Action */}
-                                    <button
-                                        onClick={handleClearCache}
-                                        disabled={clearingCache}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="1440"
+                                        value={cacheTtl}
+                                        onChange={e => setCacheTtl(e.target.value)}
+                                        disabled={!cacheEnabled}
                                         style={{
-                                            display: 'flex', alignItems: 'center', gap: '0.4rem',
-                                            padding: '0.3rem 0.6rem', borderRadius: '4px',
-                                            border: '1px solid rgba(239, 68, 68, 0.3)', background: 'rgba(239, 68, 68, 0.1)',
-                                            color: '#ef4444', fontSize: '0.75rem', fontWeight: 600,
-                                            cursor: clearingCache ? 'not-allowed' : 'pointer', transition: 'all 0.2s', opacity: clearingCache ? 0.7 : 1
+                                            width: '60px', padding: '0.3rem 0.5rem', borderRadius: '6px',
+                                            border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.3)',
+                                            color: 'white', outline: 'none', opacity: cacheEnabled ? 1 : 0.5,
+                                            fontSize: '0.9rem', fontWeight: 500, textAlign: 'center'
                                         }}
-                                        title="Empty Cache Database"
-                                    >
-                                        {clearingCache ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                                        {cacheMessage ? (cacheMessage.includes('Failed') ? 'Error' : 'Cleared!') : 'Empty Cache'}
-                                    </button>
+                                    />
+                                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', opacity: cacheEnabled ? 1 : 0.5 }}>mins TTL</span>
                                 </div>
+
+                                {/* Empty Cache Action */}
+                                <button
+                                    type="button"
+                                    onClick={handleClearCache}
+                                    disabled={clearingCache}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', gap: '0.4rem',
+                                        padding: '0.3rem 0.8rem', borderRadius: '6px',
+                                        border: '1px solid rgba(239, 68, 68, 0.3)', background: 'rgba(239, 68, 68, 0.1)',
+                                        color: '#ef4444', fontSize: '0.8rem', fontWeight: 600,
+                                        cursor: clearingCache ? 'not-allowed' : 'pointer', transition: 'all 0.2s', opacity: clearingCache ? 0.7 : 1
+                                    }}
+                                    title="Empty Cache Database"
+                                >
+                                    {clearingCache ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                                    {cacheMessage ? (cacheMessage.includes('Failed') ? 'Error' : 'Cleared!') : 'Empty Cache'}
+                                </button>
                             </div>
                         </div>
 
-                        {/* RIGHT COLUMN: DNS */}
+                        {/* Custom DNS */}
                         <div>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Custom DNS Servers</label>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '0.5rem' }}>
+                                <label style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Custom DNS Servers</label>
+                                <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)' }}>Press Enter to add</span>
+                            </div>
 
                             <div style={{
-                                display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'flex-start', alignContent: 'flex-start',
-                                padding: '0.5rem', borderRadius: '8px',
+                                display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center',
+                                padding: '0.5rem 0.75rem', borderRadius: '8px',
                                 border: '1px solid rgba(255,255,255,0.15)',
-                                background: 'rgba(0,0,0,0.3)', minHeight: '46px', maxHeight: '120px', overflowY: 'auto'
+                                background: 'rgba(0,0,0,0.3)', minHeight: '46px',
+                                transition: 'all 0.2s'
                             }} onClick={() => document.getElementById('dns-input-field').focus()}>
-                                {dnsList.map((ip, i) => {
+
+                                {dnsList.slice(0, showAllDns ? dnsList.length : 3).map((ip, i) => {
                                     const valid = isValidIpv4(ip);
                                     return (
                                         <div key={i} style={{
                                             display: 'flex', alignItems: 'center', gap: '0.4rem',
-                                            padding: '0.2rem 0.5rem', borderRadius: '20px',
+                                            padding: '0.2rem 0.6rem', borderRadius: '20px',
                                             background: 'rgba(255,255,255,0.1)', color: 'white',
                                             fontSize: '0.85rem', border: `1px solid ${valid ? 'rgba(255,255,255,0.2)' : 'rgba(239,68,68,0.5)'}`
                                         }}>
                                             <span>{ip}</span>
-                                            {valid ? <CheckCircle2 size={14} color="var(--success-color)" /> : <AlertCircle size={14} color="#ef4444" />}
-                                            <X size={14} style={{ cursor: 'pointer', opacity: 0.6 }} onClick={(e) => { e.stopPropagation(); removeDns(i); }} onMouseOver={e => e.currentTarget.style.opacity = 1} onMouseOut={e => e.currentTarget.style.opacity = 0.6} />
+                                            {valid ? <CheckCircle2 size={13} color="var(--success-color)" /> : <AlertCircle size={13} color="#ef4444" />}
+                                            <X size={13} style={{ cursor: 'pointer', opacity: 0.6 }} onClick={(e) => { e.stopPropagation(); removeDns(i); }} onMouseOver={e => e.currentTarget.style.opacity = 1} onMouseOut={e => e.currentTarget.style.opacity = 0.6} />
                                         </div>
                                     )
                                 })}
+
+                                {!showAllDns && dnsList.length > 3 && (
+                                    <div
+                                        onClick={(e) => { e.stopPropagation(); setShowAllDns(true); }}
+                                        style={{
+                                            padding: '0.2rem 0.6rem', borderRadius: '20px',
+                                            background: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa', cursor: 'pointer',
+                                            fontSize: '0.8rem', fontWeight: 600, border: '1px solid rgba(59, 130, 246, 0.3)'
+                                        }}
+                                    >
+                                        +{dnsList.length - 3} more
+                                    </div>
+                                )}
+
                                 <input
                                     id="dns-input-field"
                                     type="text"
                                     value={dnsInput}
                                     onChange={e => setDnsInput(e.target.value)}
                                     onKeyDown={handleDnsKeyDown}
-                                    placeholder={dnsList.length === 0 ? "System DNS (Enter to add)" : "Add DNS..."}
+                                    placeholder={dnsList.length === 0 ? "System Default" : "Add IP..."}
                                     style={{
                                         flex: '1 1 auto', border: 'none', background: 'transparent',
-                                        color: 'white', minWidth: '120px', outline: 'none',
-                                        fontSize: '0.85rem', padding: '0.2rem'
+                                        color: 'white', minWidth: '100px', outline: 'none',
+                                        fontSize: '0.9rem', padding: '0.2rem'
                                     }}
+                                    onFocus={() => setShowAllDns(true)}
+                                    onBlur={() => setTimeout(() => setShowAllDns(false), 200)}
                                 />
                             </div>
-                            <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', marginTop: '0.4rem', display: 'block' }}>
-                                Add IPs separated by space or Enter.
-                            </span>
                         </div>
                     </div>
 
