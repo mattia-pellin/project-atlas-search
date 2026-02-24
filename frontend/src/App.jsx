@@ -19,7 +19,6 @@ function App() {
 
   const [qualityFilter, setQualityFilter] = useState('All');
   const [siteFilter, setSiteFilter] = useState('All');
-  const [bypassCache, setBypassCache] = useState(false);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -33,8 +32,7 @@ function App() {
     setQualityFilter('All');
     setSiteFilter('All');
 
-    const cacheParam = bypassCache ? '&force_refresh=true' : '';
-    const eventSource = new EventSource(`${API_BASE}/search/stream?q=${encodeURIComponent(query)}${cacheParam}`);
+    const eventSource = new EventSource(`${API_BASE}/search/stream?q=${encodeURIComponent(query)}`);
 
     eventSource.addEventListener('status', (event) => {
       const data = JSON.parse(event.data);
@@ -125,20 +123,7 @@ function App() {
           </button>
         </form>
 
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '0.5rem', marginBottom: '1rem' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            <input
-              type="checkbox"
-              checked={bypassCache}
-              onChange={(e) => setBypassCache(e.target.checked)}
-              style={{ accentColor: 'var(--accent-color)', cursor: 'pointer' }}
-              disabled={isSearching}
-            />
-            Bypass Cache (Force Refresh)
-          </label>
-        </div>
-
-        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center', marginTop: '1rem' }}>
           {Object.entries(statuses).map(([site, info]) => {
             const status = info.status || 'searching';
             const tooltip = status === 'error'

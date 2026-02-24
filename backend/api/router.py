@@ -207,3 +207,10 @@ async def update_settings(data: SettingsUpdate, db: AsyncSession = Depends(get_d
             
     await db.commit()
     return {"status": "success"}
+
+@router.delete("/cache")
+async def clear_cache(db: AsyncSession = Depends(get_db)):
+    from sqlalchemy import delete
+    await db.execute(delete(SearchCache))
+    await db.commit()
+    return {"status": "success", "message": "Cache cleared."}

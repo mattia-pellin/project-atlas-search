@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { fetchSettings, updateSettings } from '../lib/api';
-import { Save, X, Loader2, CheckCircle2, AlertCircle, ChevronDown, ChevronRight } from 'lucide-react';
+import { fetchSettings, updateSettings, clearCache } from '../lib/api';
+import { Save, X, Loader2, CheckCircle2, AlertCircle, ChevronDown, ChevronRight, Trash2, Check } from 'lucide-react';
 
 const SUPPORTED_SITES = [
     'HDItalia', 'Lost Planet', 'LFI', 'HD4ME', '1337x'
@@ -26,6 +26,8 @@ export default function SettingsModal({ onClose }) {
     // New Cache Settings
     const [cacheEnabled, setCacheEnabled] = useState(true);
     const [cacheTtl, setCacheTtl] = useState(60);
+    const [clearingCache, setClearingCache] = useState(false);
+    const [cacheMessage, setCacheMessage] = useState('');
 
     const isValidIpv4 = (ip) => {
         const ipv4Regex = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
@@ -123,6 +125,21 @@ export default function SettingsModal({ onClose }) {
         }
     };
 
+    const handleClearCache = async () => {
+        setClearingCache(true);
+        setCacheMessage('');
+        try {
+            await clearCache();
+            setCacheMessage('Cache cleared!');
+            setTimeout(() => setCacheMessage(''), 3000);
+        } catch (e) {
+            console.error(e);
+            setCacheMessage('Failed to clear');
+        } finally {
+            setClearingCache(false);
+        }
+    };
+
     const handleCredChange = (site, field, value) => {
         setCredentials(prev => ({
             ...prev,
@@ -156,7 +173,7 @@ export default function SettingsModal({ onClose }) {
                         <div style={{ background: 'var(--accent-color)', padding: '0.5rem', borderRadius: '8px', display: 'flex' }}>
                             <Save size={20} color="white" />
                         </div>
-                        <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 600 }}>Global Settings & Search Engines</h2>
+                        <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 600 }}>Settings</h2>
                     </div>
                     <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', transition: 'color 0.2s' }} onMouseOver={e => e.currentTarget.style.color = 'white'} onMouseOut={e => e.currentTarget.style.color = 'rgba(255,255,255,0.6)'}>
                         <X size={24} />
@@ -230,48 +247,74 @@ export default function SettingsModal({ onClose }) {
                         </div>
 
                         {/* Cache Settings */}
-                        <div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                                <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Search Cache (TTL)</label>
-                                <span style={{ fontSize: '0.85rem', color: 'var(--accent-color)', fontWeight: 600 }}>{cacheTtl} mins</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                            <div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                    <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Search Cache (TTL)</label>
+                                    <span style={{ fontSize: '0.85rem', color: 'var(--accent-color)', fontWeight: 600 }}>{cacheTtl} mins</span>
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '0.5rem' }} onClick={e => e.stopPropagation()}>
+                                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: cacheEnabled ? 'var(--accent-color)' : 'var(--text-secondary)' }}>{cacheEnabled ? 'ON' : 'OFF'}</span>
+                                        <div style={{
+                                            position: 'relative', width: '36px', height: '20px',
+                                            background: cacheEnabled ? 'var(--accent-color)' : 'rgba(255,255,255,0.2)',
+                                            borderRadius: '20px', transition: 'background 0.3s'
+                                        }}>
+                                            <div style={{
+                                                position: 'absolute', top: '2px', left: cacheEnabled ? '18px' : '2px',
+                                                width: '16px', height: '16px', background: 'white',
+                                                borderRadius: '50%', transition: 'left 0.3s ease',
+                                                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                                            }}></div>
+                                        </div>
+                                        <input
+                                            type="checkbox"
+                                            checked={cacheEnabled}
+                                            onChange={e => setCacheEnabled(e.target.checked)}
+                                            style={{ display: 'none' }}
+                                        />
+                                    </label>
+
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="1440"
+                                        value={cacheTtl}
+                                        onChange={e => setCacheTtl(e.target.value)}
+                                        disabled={!cacheEnabled}
+                                        style={{
+                                            width: '80px', padding: '0.4rem 0.5rem', borderRadius: '6px',
+                                            border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)',
+                                            color: 'white', outline: 'none', opacity: cacheEnabled ? 1 : 0.5
+                                        }}
+                                    />
+                                </div>
                             </div>
 
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '0.5rem' }} onClick={e => e.stopPropagation()}>
-                                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: cacheEnabled ? 'var(--accent-color)' : 'var(--text-secondary)' }}>{cacheEnabled ? 'ON' : 'OFF'}</span>
-                                    <div style={{
-                                        position: 'relative', width: '36px', height: '20px',
-                                        background: cacheEnabled ? 'var(--accent-color)' : 'rgba(255,255,255,0.2)',
-                                        borderRadius: '20px', transition: 'background 0.3s'
-                                    }}>
-                                        <div style={{
-                                            position: 'absolute', top: '2px', left: cacheEnabled ? '18px' : '2px',
-                                            width: '16px', height: '16px', background: 'white',
-                                            borderRadius: '50%', transition: 'left 0.3s ease',
-                                            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                                        }}></div>
-                                    </div>
-                                    <input
-                                        type="checkbox"
-                                        checked={cacheEnabled}
-                                        onChange={e => setCacheEnabled(e.target.checked)}
-                                        style={{ display: 'none' }}
-                                    />
-                                </label>
-
-                                <input
-                                    type="number"
-                                    min="1"
-                                    max="1440"
-                                    value={cacheTtl}
-                                    onChange={e => setCacheTtl(e.target.value)}
-                                    disabled={!cacheEnabled}
+                            {/* Empty Cache Action */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.2rem' }}>
+                                <button
+                                    onClick={handleClearCache}
+                                    disabled={clearingCache}
                                     style={{
-                                        width: '80px', padding: '0.4rem 0.5rem', borderRadius: '6px',
-                                        border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)',
-                                        color: 'white', outline: 'none', opacity: cacheEnabled ? 1 : 0.5
+                                        display: 'flex', alignItems: 'center', gap: '0.4rem',
+                                        padding: '0.4rem 0.8rem', borderRadius: '6px',
+                                        border: '1px solid rgba(239, 68, 68, 0.3)', background: 'rgba(239, 68, 68, 0.1)',
+                                        color: '#ef4444', fontSize: '0.75rem', fontWeight: 600,
+                                        cursor: clearingCache ? 'not-allowed' : 'pointer', transition: 'all 0.2s', opacity: clearingCache ? 0.7 : 1
                                     }}
-                                />
+                                    title="Empty Cache Database"
+                                >
+                                    {clearingCache ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                                    Empty Database Cache
+                                </button>
+                                {cacheMessage && (
+                                    <span style={{ fontSize: '0.75rem', color: cacheMessage.includes('Failed') ? '#ef4444' : 'var(--success-color)', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                                        {cacheMessage.includes('Failed') ? <AlertCircle size={12} /> : <Check size={12} />} {cacheMessage}
+                                    </span>
+                                )}
                             </div>
                         </div>
                         <div style={{ visibility: 'hidden' }}></div> {/* Spacer to maintain grid */}

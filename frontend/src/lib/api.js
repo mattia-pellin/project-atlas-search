@@ -16,6 +16,14 @@ export const updateSettings = async (data) => {
     return res.json();
 };
 
+export const clearCache = async () => {
+    const res = await fetch(`${API_BASE}/cache`, {
+        method: "DELETE"
+    });
+    if (!res.ok) throw new Error("Failed to clear cache");
+    return res.json();
+};
+
 export const fetchDownloadLinks = async (site, url) => {
     const res = await fetch(`${API_BASE}/links`, {
         method: "POST",
