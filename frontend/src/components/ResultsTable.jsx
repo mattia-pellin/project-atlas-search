@@ -40,6 +40,7 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
     const [expandedId, setExpandedId] = useState(null);
     const [activeHoster, setActiveHoster] = useState({});
     const [toastMsg, setToastMsg] = useState(null);
+    const [imageErrors, setImageErrors] = useState({});
     const toastTimer = useRef(null);
 
     const showToast = useCallback((msg) => {
@@ -181,8 +182,13 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
     const renderCell = (colId, r) => {
         switch (colId) {
             case 'cover':
-                return r.poster ? (
-                    <img src={r.poster} alt="poster" style={{ width: '40px', height: '60px', objectFit: 'cover', borderRadius: '4px' }} />
+                return r.poster && !imageErrors[r.id] ? (
+                    <img
+                        src={r.poster}
+                        alt="poster"
+                        style={{ width: '40px', height: '60px', objectFit: 'cover', borderRadius: '4px' }}
+                        onError={() => setImageErrors(prev => ({ ...prev, [r.id]: true }))}
+                    />
                 ) : (
                     <div style={{ width: '40px', height: '60px', background: 'var(--glass-border)', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
                         <ImageOff size={20} />
