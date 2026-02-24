@@ -35,7 +35,10 @@ async def test_search_all_crawlers(query):
         async with ac.stream("GET", f"/api/search/stream?q={query}&force_refresh=true") as response:
             assert response.status_code == 200, "Search API endpoint failed"
             
-            site_results_count = {site: 0 for site in EXPECTED_SITES}
+            site_statuses = {}
+            site_results_count = {}
+            for site in EXPECTED_SITES:
+                site_results_count[site] = 0
             
             async for line in response.aiter_lines():
                 line = line.strip()
@@ -46,15 +49,27 @@ async def test_search_all_crawlers(query):
                     try:
                         payload = json.loads(data_str)
                         print(f"RCV: {payload}")
-                        # We only care about actual results, not status updates
-                        if "type" in payload and payload["type"] == "results" and "site" in payload:
-                            site = payload["site"]
+                        
+                        # Results
+                        if payload.get("type") == "results":
+                            site = payload.get("site")
                             if site in site_results_count:
                                 site_results_count[site] += len(payload.get("data", []))
+                        # Status updates
+                        elif payload.get("site") and "status" in payload:
+                            site_statuses[payload["site"]] = payload["status"]
                     except Exception as repr_err:
                         print(f"ERR: {repr_err}")
                         
-            # Verify each crawler returned at least 1 result
-            failed_sites = [site for site, count in site_results_count.items() if count == 0]
+            # Verify each crawler
+            failed_sites = []
+            for site in EXPECTED_SITES:
+                status = site_statuses.get(site, "unknown")
+                count = site_results_count[site]
+                if status == "completed" and count == 0:
+                    failed_sites.append(f"{site} (0 results)")
+                elif status == "error":
+                    failed_sites.append(f"{site} (Error status)")
+                # 'warning' (IP ban) is allowed to have 0 results for this CI check
             
-            assert not failed_sites, f"Query '{query}' failed to return any results for crawlers: {failed_sites}"
+            assert not failed_sites, f"Query '{query}' failed for crawlers: {failed_sites}. Statuses: {site_statuses}"

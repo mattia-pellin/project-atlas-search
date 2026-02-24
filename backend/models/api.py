@@ -15,5 +15,6 @@ class FetchLinksResult(BaseModel):
 
 class SearchStatus(BaseModel):
     site: str
-    status: str # 'searching', 'completed', 'error'
+    status: str # 'searching', 'completed', 'error', 'warning'
+    count: Optional[int] = None
     error_message: Optional[str] = None

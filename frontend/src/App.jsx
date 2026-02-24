@@ -38,7 +38,11 @@ function App() {
       const data = JSON.parse(event.data);
       setStatuses(prev => ({
         ...prev,
-        [data.site]: { status: data.status, error: data.error_message || null }
+        [data.site]: {
+          status: data.status,
+          error: data.error_message || null,
+          count: data.count !== undefined ? data.count : prev[data.site]?.count
+        }
       }));
     });
 
@@ -86,9 +90,10 @@ function App() {
   };
 
   const statusColors = {
-    searching: '#f59e0b',
-    completed: '#10b981',
-    error: '#ef4444'
+    searching: '#3b82f6', // Blue
+    warning: '#f59e0b',   // Orange/Amber
+    completed: '#10b981', // Emerald/Green
+    error: '#ef4444'      // Rose/Red
   };
 
   // Rendering done via ResultsTable directly
@@ -128,21 +133,46 @@ function App() {
             const status = info.status || 'searching';
             const tooltip = status === 'error'
               ? `Error: ${info.error || 'Unknown'}`
-              : status === 'completed'
-                ? `Completed: ${info.count ?? '?'} results`
-                : 'Searching...';
+              : status === 'warning'
+                ? `Warning: ${info.error || 'Soft IP Ban / Timeout'}`
+                : status === 'completed'
+                  ? `Completed: ${info.count ?? 0} results`
+                  : 'Searching...';
             return (
               <div key={site}
                 title={tooltip}
                 style={{
                   display: 'flex', alignItems: 'center', gap: '0.5rem',
-                  background: status === 'error' ? 'rgba(239, 68, 73, 0.1)' : 'rgba(255,255,255,0.05)',
-                  border: status === 'error' ? '1px solid rgba(239, 68, 73, 0.3)' : '1px solid transparent',
-                  padding: '0.5rem 1rem', borderRadius: '20px', fontSize: '0.85rem',
-                  cursor: 'default'
+                  background: status === 'error' ? 'rgba(239, 68, 73, 0.1)' :
+                    status === 'warning' ? 'rgba(245, 158, 11, 0.1)' :
+                      'rgba(255,255,255,0.05)',
+                  border: status === 'error' ? '1px solid rgba(239, 68, 73, 0.3)' :
+                    status === 'warning' ? '1px solid rgba(245, 158, 11, 0.3)' :
+                      '1px solid transparent',
+                  padding: '0.4rem 0.8rem', borderRadius: '20px', fontSize: '0.8rem',
+                  cursor: 'help',
+                  transition: 'all 0.2s'
                 }}>
-                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: statusColors[status] }}></div>
-                <span style={{ textTransform: 'capitalize', color: status === 'error' ? '#ef4444' : 'var(--text-secondary)' }}>{site}</span>
+                <div style={{
+                  width: '8px', height: '8px', borderRadius: '50%',
+                  background: statusColors[status],
+                  boxShadow: status === 'searching' ? `0 0 8px ${statusColors[status]}` : 'none',
+                  animation: status === 'searching' ? 'pulse 2s infinite' : 'none'
+                }}></div>
+                <span style={{
+                  textTransform: 'capitalize',
+                  color: status === 'error' ? '#ef4444' :
+                    status === 'warning' ? '#f59e0b' :
+                      'var(--text-secondary)',
+                  fontWeight: (status === 'completed' && info.count > 0) ? '600' : 'normal'
+                }}>
+                  {site}
+                  {status === 'completed' && info.count !== undefined && (
+                    <span style={{ marginLeft: '4px', opacity: 0.8, fontSize: '0.75rem' }}>
+                      ({info.count})
+                    </span>
+                  )}
+                </span>
               </div>
             );
           })}
