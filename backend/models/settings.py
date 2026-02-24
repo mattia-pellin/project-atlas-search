@@ -19,3 +19,5 @@ class AppSettings(Base):
     id = Column(Integer, primary_key=True, index=True)
     max_results = Column(Integer, default=50)
     dns_servers = Column(String, default="system")
+    cache_enabled = Column(Boolean, default=True)
+    cache_ttl_minutes = Column(Integer, default=60)

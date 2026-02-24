@@ -16,5 +16,6 @@ async def get_db():
         yield session
 
 async def init_db():
+    import backend.models.search # Prevents circular import
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

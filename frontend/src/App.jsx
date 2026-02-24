@@ -19,6 +19,7 @@ function App() {
 
   const [qualityFilter, setQualityFilter] = useState('All');
   const [siteFilter, setSiteFilter] = useState('All');
+  const [bypassCache, setBypassCache] = useState(false);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -32,7 +33,8 @@ function App() {
     setQualityFilter('All');
     setSiteFilter('All');
 
-    const eventSource = new EventSource(`${API_BASE}/search/stream?q=${encodeURIComponent(query)}`);
+    const cacheParam = bypassCache ? '&force_refresh=true' : '';
+    const eventSource = new EventSource(`${API_BASE}/search/stream?q=${encodeURIComponent(query)}${cacheParam}`);
 
     eventSource.addEventListener('status', (event) => {
       const data = JSON.parse(event.data);
@@ -122,6 +124,19 @@ function App() {
             {isSearching ? <Loader2 className="animate-spin" size={24} /> : <Search size={24} />}
           </button>
         </form>
+
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '0.5rem', marginBottom: '1rem' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+            <input
+              type="checkbox"
+              checked={bypassCache}
+              onChange={(e) => setBypassCache(e.target.checked)}
+              style={{ accentColor: 'var(--accent-color)', cursor: 'pointer' }}
+              disabled={isSearching}
+            />
+            Bypass Cache (Force Refresh)
+          </label>
+        </div>
 
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
           {Object.entries(statuses).map(([site, info]) => {

@@ -8,7 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from backend.core.database import get_db
 from backend.models.settings import SiteCredential, AppSettings
+from backend.models.search import SearchCache
 from typing import List, Optional
+import datetime
 
 router = APIRouter()
 
@@ -22,7 +24,33 @@ async def search_stream(request: Request, q: str, db: AsyncSession = Depends(get
     settings = result.scalars().first()
     limit = settings.max_results if settings else 10
     dns_servers = settings.dns_servers if settings else "system"
+    cache_enabled = settings.cache_enabled if settings else True
+    cache_ttl_minutes = settings.cache_ttl_minutes if settings else 60
     
+    force_refresh = request.query_params.get("force_refresh", "false").lower() == "true"
+    
+    # Check cache first if enabled and not forced to refresh
+    if cache_enabled and not force_refresh:
+        cache_query = await db.execute(select(SearchCache).where(SearchCache.query == q))
+        cached_entry = cache_query.scalars().first()
+        if cached_entry:
+            # Check TTL
+            age_minutes = (datetime.datetime.utcnow() - cached_entry.timestamp).total_seconds() / 60
+            if age_minutes <= cache_ttl_minutes:
+                # Validate cached JSON
+                try:
+                    cached_results = json.loads(cached_entry.results_json)
+                    async def cached_generator():
+                        # Yield all cached objects formatted as SSE results
+                        for res in cached_results:
+                            wrapped = {"site": res.get("site", "cache"), "type": "results", "data": [res]}
+                            yield {"event": "results", "data": json.dumps(wrapped)}
+                        yield {"event": "done", "data": "{}"}
+                    return EventSourceResponse(cached_generator())
+                except Exception as e:
+                    # Invalid cache data, proceed to crawl normally
+                    pass
+
     result = await db.execute(select(SiteCredential))
     credentials = {c.site_key: {
         "username": c.username, 
@@ -38,6 +66,7 @@ async def search_stream(request: Request, q: str, db: AsyncSession = Depends(get
         
         # Start background task that populates the queue
         task = asyncio.create_task(manager.execute_parallel(queue))
+        local_accumulated_results = []
         
         while True:
             # Check if client disconnected
@@ -48,6 +77,20 @@ async def search_stream(request: Request, q: str, db: AsyncSession = Depends(get
             item = await queue.get()
             
             if isinstance(item, dict) and item.get("type") == "done":
+                # Save to cache if enabled
+                if cache_enabled and local_accumulated_results:
+                    try:
+                        cache_query = await db.execute(select(SearchCache).where(SearchCache.query == q))
+                        cached_entry = cache_query.scalars().first()
+                        if not cached_entry:
+                            cached_entry = SearchCache(query=q)
+                            db.add(cached_entry)
+                        
+                        cached_entry.results_json = json.dumps(local_accumulated_results)
+                        cached_entry.timestamp = datetime.datetime.utcnow()
+                        await db.commit()
+                    except Exception as e:
+                        print(f"Failed to cache search results: {e}")
                 yield {"event": "done", "data": "{}"}
                 break
                 
@@ -55,6 +98,7 @@ async def search_stream(request: Request, q: str, db: AsyncSession = Depends(get
             if hasattr(item, "model_dump_json"):
                 yield {"event": "status", "data": item.model_dump_json()}
             elif isinstance(item, dict) and item.get("type") == "results":
+                local_accumulated_results.extend(item.get("data", []))
                 yield {"event": "results", "data": json.dumps(item)}
 
     return EventSourceResponse(event_generator())
@@ -101,6 +145,8 @@ class CredentialItem(BaseModel):
 class SettingsUpdate(BaseModel):
     max_results: int
     dns_servers: str = "system"
+    cache_enabled: bool = True
+    cache_ttl_minutes: int = 60
     credentials: List[CredentialItem]
 
 @router.get("/settings")
@@ -110,13 +156,21 @@ async def get_settings(db: AsyncSession = Depends(get_db)):
     settings = result.scalars().first()
     max_results = settings.max_results if settings else 10
     dns_servers = settings.dns_servers if settings else "system"
+    cache_enabled = settings.cache_enabled if settings else True
+    cache_ttl_minutes = settings.cache_ttl_minutes if settings else 60
     
     # Get credentials
     result = await db.execute(select(SiteCredential))
     credentials = result.scalars().all()
     
     creds_list = [{"site_key": c.site_key, "custom_name": c.custom_name, "custom_url": c.custom_url, "is_enabled": c.is_enabled, "username": c.username, "password": c.password} for c in credentials]
-    return {"max_results": max_results, "dns_servers": dns_servers, "credentials": creds_list}
+    return {
+        "max_results": max_results, 
+        "dns_servers": dns_servers, 
+        "cache_enabled": cache_enabled,
+        "cache_ttl_minutes": cache_ttl_minutes,
+        "credentials": creds_list
+    }
 
 @router.post("/settings")
 async def update_settings(data: SettingsUpdate, db: AsyncSession = Depends(get_db)):
@@ -124,11 +178,18 @@ async def update_settings(data: SettingsUpdate, db: AsyncSession = Depends(get_d
     result = await db.execute(select(AppSettings).limit(1))
     settings = result.scalars().first()
     if not settings:
-        settings = AppSettings(max_results=data.max_results, dns_servers=data.dns_servers)
+        settings = AppSettings(
+            max_results=data.max_results, 
+            dns_servers=data.dns_servers,
+            cache_enabled=data.cache_enabled,
+            cache_ttl_minutes=data.cache_ttl_minutes
+        )
         db.add(settings)
     else:
         settings.max_results = data.max_results
         settings.dns_servers = data.dns_servers
+        settings.cache_enabled = data.cache_enabled
+        settings.cache_ttl_minutes = data.cache_ttl_minutes
         
     # Update credentials
     for cred in data.credentials:

@@ -23,6 +23,10 @@ export default function SettingsModal({ onClose }) {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
+    // New Cache Settings
+    const [cacheEnabled, setCacheEnabled] = useState(true);
+    const [cacheTtl, setCacheTtl] = useState(60);
+
     const isValidIpv4 = (ip) => {
         const ipv4Regex = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
         return ipv4Regex.test(ip.trim());
@@ -36,6 +40,9 @@ export default function SettingsModal({ onClose }) {
             } else {
                 setDnsList([]);
             }
+            if (data.cache_enabled !== undefined) setCacheEnabled(data.cache_enabled);
+            if (data.cache_ttl_minutes !== undefined) setCacheTtl(data.cache_ttl_minutes);
+
             const credsMap = {};
 
             // Initialize default structure
@@ -100,7 +107,13 @@ export default function SettingsModal({ onClose }) {
 
         try {
             const finalDns = dnsList.length === 0 ? 'system' : dnsList.join(',');
-            await updateSettings({ max_results: parseInt(maxResults), dns_servers: finalDns, credentials: credsList });
+            await updateSettings({
+                max_results: parseInt(maxResults),
+                dns_servers: finalDns,
+                cache_enabled: cacheEnabled,
+                cache_ttl_minutes: parseInt(cacheTtl) || 60,
+                credentials: credsList
+            });
             onClose();
         } catch (e) {
             console.error(e);
@@ -215,6 +228,53 @@ export default function SettingsModal({ onClose }) {
                                 />
                             </div>
                         </div>
+
+                        {/* Cache Settings */}
+                        <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Search Cache (TTL)</label>
+                                <span style={{ fontSize: '0.85rem', color: 'var(--accent-color)', fontWeight: 600 }}>{cacheTtl} mins</span>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '0.5rem' }} onClick={e => e.stopPropagation()}>
+                                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: cacheEnabled ? 'var(--accent-color)' : 'var(--text-secondary)' }}>{cacheEnabled ? 'ON' : 'OFF'}</span>
+                                    <div style={{
+                                        position: 'relative', width: '36px', height: '20px',
+                                        background: cacheEnabled ? 'var(--accent-color)' : 'rgba(255,255,255,0.2)',
+                                        borderRadius: '20px', transition: 'background 0.3s'
+                                    }}>
+                                        <div style={{
+                                            position: 'absolute', top: '2px', left: cacheEnabled ? '18px' : '2px',
+                                            width: '16px', height: '16px', background: 'white',
+                                            borderRadius: '50%', transition: 'left 0.3s ease',
+                                            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                                        }}></div>
+                                    </div>
+                                    <input
+                                        type="checkbox"
+                                        checked={cacheEnabled}
+                                        onChange={e => setCacheEnabled(e.target.checked)}
+                                        style={{ display: 'none' }}
+                                    />
+                                </label>
+
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="1440"
+                                    value={cacheTtl}
+                                    onChange={e => setCacheTtl(e.target.value)}
+                                    disabled={!cacheEnabled}
+                                    style={{
+                                        width: '80px', padding: '0.4rem 0.5rem', borderRadius: '6px',
+                                        border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)',
+                                        color: 'white', outline: 'none', opacity: cacheEnabled ? 1 : 0.5
+                                    }}
+                                />
+                            </div>
+                        </div>
+                        <div style={{ visibility: 'hidden' }}></div> {/* Spacer to maintain grid */}
                     </div>
 
                     {/* SEARCH ENGINES */}
