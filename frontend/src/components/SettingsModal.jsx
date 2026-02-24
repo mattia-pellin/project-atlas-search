@@ -270,8 +270,8 @@ export default function SettingsModal({ onClose }) {
 
                                         {isExpanded && (
                                             <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', padding: '1.25rem' }}>
-                                                <div style={{ display: 'grid', gridTemplateColumns: site !== '1337x' ? '1fr 1fr 1.5fr' : '1fr', gap: '1rem' }}>
-                                                    {site !== '1337x' && (
+                                                <div style={{ display: 'grid', gridTemplateColumns: (site !== '1337x' && site !== 'HD4ME') ? '1fr 1fr 1.5fr' : '1fr', gap: '1rem' }}>
+                                                    {site !== '1337x' && site !== 'HD4ME' && (
                                                         <>
                                                             <div>
                                                                 <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>Username</label>
