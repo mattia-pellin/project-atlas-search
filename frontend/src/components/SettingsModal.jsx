@@ -170,7 +170,7 @@ export default function SettingsModal({ onClose }) {
                 padding: '2rem',
                 color: 'white'
             }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.8rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                         <div style={{ background: 'var(--accent-color)', padding: '0.5rem', borderRadius: '8px', display: 'flex' }}>
                             <Save size={20} color="white" />
@@ -182,7 +182,7 @@ export default function SettingsModal({ onClose }) {
                     </button>
                 </div>
 
-                <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                     {/* GLOBAL SETTINGS */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
 
@@ -251,7 +251,7 @@ export default function SettingsModal({ onClose }) {
                                         </button>
                                     </div>
 
-                                    <span style={{ fontSize: '1rem', color: 'var(--accent-color)', fontWeight: 600 }}>{cacheTtl} mins</span>
+                                    <span style={{ fontSize: '1rem', color: 'var(--accent-color)', fontWeight: 600 }}>{Math.floor(cacheTtl / 60)} {Math.floor(cacheTtl / 60) === 1 ? 'hr' : 'hrs'}</span>
                                 </div>
                                 <input
                                     type="range"
@@ -331,8 +331,8 @@ export default function SettingsModal({ onClose }) {
 
                     {/* SEARCH ENGINES */}
                     <div>
-                        <h3 style={{ fontSize: '1.2rem', fontWeight: 500, marginBottom: '1rem', color: 'white' }}>Search Engines</h3>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <h3 style={{ fontSize: '1.1rem', fontWeight: 500, marginBottom: '0.8rem', color: 'white' }}>Search Engines</h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                             {SUPPORTED_SITES.map(site => {
                                 const isEnabled = credentials[site]?.is_enabled !== false;
                                 const isExpanded = expandedSites[site];
@@ -341,13 +341,13 @@ export default function SettingsModal({ onClose }) {
                                     <div key={site} style={{
                                         background: isEnabled ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.2)',
                                         border: isEnabled ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(255,255,255,0.05)',
-                                        borderRadius: '12px',
+                                        borderRadius: '8px',
                                         transition: 'all 0.3s ease',
                                         overflow: 'hidden'
                                     }}>
                                         <div style={{
                                             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                            padding: '1.25rem', opacity: isEnabled ? 1 : 0.6, cursor: 'pointer'
+                                            padding: '0.8rem 1rem', opacity: isEnabled ? 1 : 0.6, cursor: 'pointer'
                                         }} onClick={() => toggleSiteExpand(site)}>
                                             <div style={{ display: 'flex', alignItems: 'center', justifyItems: 'center', gap: '0.5rem' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', paddingTop: '2px' }}>
@@ -381,7 +381,7 @@ export default function SettingsModal({ onClose }) {
                                         </div>
 
                                         {isExpanded && (
-                                            <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', padding: '1.25rem' }}>
+                                            <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', padding: '1rem' }}>
                                                 <div style={{ display: 'grid', gridTemplateColumns: (site !== '1337x' && site !== 'HD4ME') ? '1fr 1fr 1.5fr' : '1fr', gap: '1rem' }}>
                                                     {site !== '1337x' && site !== 'HD4ME' && (
                                                         <>
@@ -426,7 +426,7 @@ export default function SettingsModal({ onClose }) {
                         </div>
                     </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '1rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '0.2rem' }}>
                         <button type="button" onClick={onClose} style={{
                             padding: '0.75rem 2rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)',
                             background: 'transparent', color: 'white', fontWeight: 600, cursor: 'pointer',
