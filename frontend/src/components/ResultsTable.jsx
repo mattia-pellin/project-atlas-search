@@ -335,14 +335,15 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
                                 background: expandedId === r.id ? 'var(--accent-color)' : 'rgba(255,255,255,0.05)',
                                 border: expandedId === r.id ? '1px solid var(--accent-color)' : '1px solid rgba(255,255,255,0.1)',
                                 borderRadius: '8px',
-                                padding: '4px',
+                                padding: 0,
                                 cursor: 'pointer',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 transition: 'all 0.2s',
                                 width: '28px', height: '28px',
+                                color: expandedId === r.id ? 'white' : 'var(--text-secondary)'
                             }}
                         >
-                            <ChevronDown size={14} style={{ transform: expandedId === r.id ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                            <ChevronDown size={16} style={{ transform: expandedId === r.id ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
                         </button>
                     </div>
                 );

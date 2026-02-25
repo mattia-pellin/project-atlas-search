@@ -29,7 +29,10 @@ async def search_stream(request: Request, q: str, db: AsyncSession = Depends(get
     
     force_refresh = request.query_params.get("force_refresh", "false").lower() == "true"
     
-    # Get all enabled sites from credentials
+    # Get all registered crawlers
+    from backend.crawlers.manager import REGISTERED_CRAWLERS
+    
+    # Get all enabled sites from credentials (respect DB settings)
     cred_result = await db.execute(select(SiteCredential))
     credentials = {c.site_key: {
         "username": c.username, 
@@ -39,11 +42,12 @@ async def search_stream(request: Request, q: str, db: AsyncSession = Depends(get
         "is_enabled": c.is_enabled
     } for c in cred_result.scalars().all()}
     
-    # Filter only enabled sites for execution
-    enabled_sites = [s for s, data in credentials.items() if data.get("is_enabled", True)]
-    # Filter by user registered crawlers (to avoid sites not in code)
-    from backend.crawlers.manager import REGISTERED_CRAWLERS
-    active_sites = [s for s in enabled_sites if s in REGISTERED_CRAWLERS]
+    # Active sites = All registered sites UNLESS explicitly disabled in DB
+    active_sites = []
+    for site_key in REGISTERED_CRAWLERS.keys():
+        cred = credentials.get(site_key)
+        if cred is None or cred.get("is_enabled", True):
+            active_sites.append(site_key)
     
     sites_to_crawl = []
     cached_results_by_site = {}
@@ -180,11 +184,35 @@ async def get_settings(db: AsyncSession = Depends(get_db)):
     cache_enabled = settings.cache_enabled if settings else True
     cache_ttl_minutes = settings.cache_ttl_minutes if settings else 60
     
-    # Get credentials
+    # Get credentials from DB
     result = await db.execute(select(SiteCredential))
-    credentials = result.scalars().all()
+    db_credentials = {c.site_key: c for c in result.scalars().all()}
     
-    creds_list = [{"site_key": c.site_key, "custom_name": c.custom_name, "custom_url": c.custom_url, "is_enabled": c.is_enabled, "username": c.username, "password": c.password} for c in credentials]
+    # Get all registered crawlers to ensure all sites are represented in settings
+    from backend.crawlers.manager import REGISTERED_CRAWLERS
+    
+    creds_list = []
+    for site_key in REGISTERED_CRAWLERS.keys():
+        c = db_credentials.get(site_key)
+        if c:
+            creds_list.append({
+                "site_key": c.site_key, 
+                "custom_name": c.custom_name, 
+                "custom_url": c.custom_url, 
+                "is_enabled": c.is_enabled, 
+                "username": c.username, 
+                "password": c.password
+            })
+        else:
+            # Add default entry for site not in DB
+            creds_list.append({
+                "site_key": site_key,
+                "custom_name": "",
+                "custom_url": None,
+                "is_enabled": True,
+                "username": None,
+                "password": None
+            })
     return {
         "max_results": max_results, 
         "dns_servers": dns_servers, 
