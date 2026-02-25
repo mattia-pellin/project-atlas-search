@@ -7,3 +7,8 @@ __pycache__
 venv
 *.egg-info
 .env
+credentials.json
+atlas_search.db*
+*.log
+tests/
+.pytest_cache/
