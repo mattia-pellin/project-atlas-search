@@ -26,17 +26,23 @@ RUN apt-get update && \
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Set PYTHONPATH to the current working directory so the backend package is found
-ENV PYTHONPATH=/app
-
 # Copy everything to preserve directory structure (backend, __init__.py files, etc.)
 COPY . .
 
 # Copy the built frontend static files
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
+# Make entrypoint executable
+RUN chmod +x /app/entrypoint.sh
+
+# Create a separate /data directory for persistent storage (DB, credentials)
+# This prevents volume mounts from overwriting application code in /app
+RUN mkdir -p /data
+ENV DATABASE_DIR=/data
+VOLUME ["/data"]
+
 # Expose port 8000
 EXPOSE 8000
 
-# Run uvicorn server
-CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Use entrypoint script to guarantee PYTHONPATH and CWD
+ENTRYPOINT ["/app/entrypoint.sh"]

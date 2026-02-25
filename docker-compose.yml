@@ -6,5 +6,5 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./atlas_search.db:/app/atlas_search.db
-      - ./credentials.json:/app/credentials.json
+      - ./data:/data
+      - ./credentials.json:/data/credentials.json

@@ -15,8 +15,11 @@ async def lifespan(app: FastAPI):
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
 
-        # Automatically seed credentials if the file exists
-        creds_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "credentials.json")
+        # Look for credentials.json: first in DATABASE_DIR (/data), then project root
+        data_dir = os.environ.get("DATABASE_DIR", os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        creds_path = os.path.join(data_dir, "credentials.json")
+        if not os.path.exists(creds_path):
+            creds_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "credentials.json")
         if os.path.exists(creds_path):
             try:
                 with open(creds_path, 'r', encoding='utf-8') as f:
