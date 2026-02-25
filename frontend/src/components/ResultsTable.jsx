@@ -55,7 +55,7 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
         { id: 'date', label: 'Date', width: '120px', sortable: true, filterable: false },
         { id: 'quality', label: 'Quality', width: '120px', sortable: true, filterable: true },
         { id: 'site', label: 'Site', width: '120px', sortable: true, filterable: true },
-        { id: 'actions', label: 'Actions', width: '120px', sortable: false, filterable: false }
+        { id: 'actions', label: 'Actions', width: '150px', sortable: false, filterable: false }
     ];
 
     const [columns, setColumns] = useState(initialColumns);
@@ -211,7 +211,7 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
             case 'site':
                 return <span style={{ background: 'rgba(255,255,255,0.1)', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.8rem', textTransform: 'capitalize' }}>{r.site}</span>;
             case 'actions':
-                if (fetchingLinksFor === r.id) {
+                if (fetchingLinksFor[r.id]) {
                     return (
                         <div style={{ textAlign: 'center', display: 'flex', justifyContent: 'center' }}>
                             <div style={{
@@ -281,46 +281,69 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
                             </button>
                         )}
                         {hosters.map(h => {
-                            const isActive = expandedId === r.id && activeHoster[r.id] === h;
                             return (
                                 <button
                                     key={h}
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        if (isActive) {
-                                            setExpandedId(null);
-                                        } else {
-                                            setExpandedId(r.id);
-                                            setActiveHoster(prev => ({ ...prev, [r.id]: h }));
-                                        }
+                                        const allLinks = groups[h].join('\n');
+                                        navigator.clipboard.writeText(allLinks);
+                                        showToast(`${h} links copied to clipboard`);
                                     }}
-                                    title={`${h} (${groups[h].length})`}
+                                    title={`Copy ${h} links (${groups[h].length})`}
                                     style={{
-                                        background: isActive ? 'var(--accent-color)' : 'rgba(255,255,255,0.05)',
-                                        border: isActive ? '1px solid var(--accent-color)' : '1px solid rgba(255,255,255,0.1)',
+                                        background: 'rgba(255,255,255,0.05)',
+                                        border: '1px solid rgba(255,255,255,0.1)',
                                         borderRadius: '8px',
                                         padding: '4px',
                                         cursor: 'pointer',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         transition: 'all 0.2s',
-                                        width: '28px', height: '28px',
-                                        boxShadow: isActive ? '0 0 10px rgba(0, 112, 243, 0.3)' : 'none'
+                                        width: '28px', height: '28px'
                                     }}
-                                    onMouseOver={e => !isActive && (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
-                                    onMouseOut={e => !isActive && (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+                                    onMouseOver={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
+                                    onMouseOut={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
                                 >
                                     {(() => {
                                         const entry = HOSTER_ICONS[h];
                                         if (entry) {
                                             const { Icon, color } = entry;
-                                            return <Icon size={16} color={isActive ? '#fff' : color} />;
+                                            return <Icon size={16} color={color} />;
                                         }
                                         const color = stringToColor(h);
-                                        return <Link2 size={16} color={isActive ? '#fff' : color} style={{ filter: isActive ? 'none' : 'opacity(0.8)' }} />;
+                                        return <Link2 size={16} color={color} style={{ filter: 'opacity(0.8)' }} />;
                                     })()}
                                 </button>
                             );
                         })}
+                        {/* Down arrow to toggle expanded view */}
+                        <button
+                            title="Toggle links list"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (expandedId === r.id) {
+                                    setExpandedId(null);
+                                } else {
+                                    setExpandedId(r.id);
+                                    // Default to first hoster if none active
+                                    if (!activeHoster[r.id]) {
+                                        setActiveHoster(prev => ({ ...prev, [r.id]: hosters[0] }));
+                                    }
+                                }
+                            }}
+                            style={{
+                                background: expandedId === r.id ? 'var(--accent-color)' : 'rgba(255,255,255,0.05)',
+                                border: expandedId === r.id ? '1px solid var(--accent-color)' : '1px solid rgba(255,255,255,0.1)',
+                                borderRadius: '8px',
+                                padding: '4px',
+                                cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                transition: 'all 0.2s',
+                                width: '28px', height: '28px',
+                            }}
+                        >
+                            <ChevronDown size={14} style={{ transform: expandedId === r.id ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                        </button>
                     </div>
                 );
             default:
@@ -395,29 +418,52 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
                                     ))}
                                 </tr>
                                 {/* Expanded Row for Links */}
-                                {expandedId === r.id && fetchedLinks[r.id] && activeHoster[r.id] && (
+                                {expandedId === r.id && fetchedLinks[r.id] && (
                                     <tr style={{ background: 'rgba(0,0,0,0.2)' }}>
                                         <td colSpan={columns.length} style={{ padding: '1.5rem', borderBottom: '1px solid var(--glass-border)' }}>
                                             <div className="animate-fade-in">
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                                    {(() => {
-                                                        const h = activeHoster[r.id];
-                                                        const links = groupLinks(fetchedLinks[r.id].links)[h] || [];
-                                                        return links.length > 0 ? (
-                                                            <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                                                {links.map((link, idx) => (
-                                                                    <li key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                                        <div style={{ width: '6px', height: '6px', background: 'var(--accent-color)', borderRadius: '50%' }}></div>
-                                                                        <a href={link} target="_blank" rel="noreferrer" style={{ color: '#58a6ff', textDecoration: 'none', wordBreak: 'break-all', fontSize: '0.9rem' }}>
-                                                                            {link}
-                                                                        </a>
-                                                                    </li>
-                                                                ))}
-                                                            </ul>
-                                                        ) : (
-                                                            <div style={{ color: 'var(--text-secondary)' }}>No links found for {h}.</div>
-                                                        );
-                                                    })()}
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                                    {fetchedLinks[r.id].password && (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(250, 204, 21, 0.1)', padding: '0.8rem', borderRadius: '8px', border: '1px solid rgba(250, 204, 21, 0.2)' }}>
+                                                            <KeyRound size={18} color="#facc15" />
+                                                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Password:</span>
+                                                            <code style={{ background: 'rgba(255,255,255,0.1)', padding: '0.2rem 0.5rem', borderRadius: '4px', color: '#facc15', fontWeight: 'bold' }}>{fetchedLinks[r.id].password}</code>
+                                                            <button
+                                                                onClick={() => {
+                                                                    navigator.clipboard.writeText(fetchedLinks[r.id].password);
+                                                                    showToast("Password copied");
+                                                                }}
+                                                                style={{ background: 'none', border: 'none', color: 'var(--accent-color)', cursor: 'pointer', fontSize: '0.8rem', marginLeft: 'auto', textDecoration: 'underline' }}
+                                                            >
+                                                                Copy
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
+                                                        {Object.entries(groupLinks(fetchedLinks[r.id].links)).map(([h, links]) => {
+                                                            const entry = HOSTER_ICONS[h];
+                                                            const { Icon, color } = entry || { Icon: Link2, color: stringToColor(h) };
+                                                            return (
+                                                                <div key={h} style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.8rem', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.5rem' }}>
+                                                                        <Icon size={18} color={color} />
+                                                                        <span style={{ fontWeight: 600, textTransform: 'capitalize' }}>{h}</span>
+                                                                        <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginLeft: 'auto' }}>{links.length} links</span>
+                                                                    </div>
+                                                                    <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                                                                        {links.map((link, idx) => (
+                                                                            <li key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+                                                                                <div style={{ width: '4px', height: '4px', background: 'var(--accent-color)', borderRadius: '50%', marginTop: '0.6rem', flexShrink: 0 }}></div>
+                                                                                <a href={link} target="_blank" rel="noreferrer" style={{ color: '#58a6ff', textDecoration: 'none', wordBreak: 'break-all', fontSize: '0.85rem', lineHeight: '1.4' }}>
+                                                                                    {link}
+                                                                                </a>
+                                                                            </li>
+                                                                        ))}
+                                                                    </ul>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </td>

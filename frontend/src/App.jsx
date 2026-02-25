@@ -15,20 +15,23 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
-  const [fetchingLinksFor, setFetchingLinksFor] = useState(null);
+  const [fetchingLinksFor, setFetchingLinksFor] = useState({});
   const [fetchedLinks, setFetchedLinks] = useState({});
 
   const [qualityFilter, setQualityFilter] = useState('All');
   const [siteFilter, setSiteFilter] = useState('All');
 
+  const alphanumericCount = query.replace(/[^a-zA-Z0-9]/g, '').length;
+  const isQueryValid = alphanumericCount >= 4;
+
   const handleSearch = (e) => {
     e.preventDefault();
-    if (!query.trim()) return;
+    if (!isQueryValid || isSearching) return;
 
     setIsSearching(true);
     setResults([]);
     setStatuses({});
-    setFetchingLinksFor(null);
+    setFetchingLinksFor({});
     setFetchedLinks({});
     setQualityFilter('All');
     setSiteFilter('All');
@@ -77,7 +80,7 @@ function App() {
   const handleFetchLinks = async (result) => {
     if (fetchedLinks[result.id]) return;
 
-    setFetchingLinksFor(result.id);
+    setFetchingLinksFor(prev => ({ ...prev, [result.id]: true }));
     try {
       const payload = await fetchDownloadLinks(result.site, result.url);
       setFetchedLinks(prev => ({ ...prev, [result.id]: payload }));
@@ -89,7 +92,7 @@ function App() {
       console.error(e);
       setFetchedLinks(prev => ({ ...prev, [result.id]: { error: 'Failed to fetch' } }));
     } finally {
-      setFetchingLinksFor(null);
+      setFetchingLinksFor(prev => ({ ...prev, [result.id]: false }));
     }
   };
 
@@ -127,10 +130,16 @@ function App() {
             placeholder="Search for movies, series..."
             disabled={isSearching}
           />
-          <button type="submit" className="search-button" disabled={isSearching || !query.trim()}>
+          <button type="submit" className="search-button" disabled={isSearching || !isQueryValid}>
             {isSearching ? <Loader2 className="animate-spin" size={24} /> : <Search size={24} />}
           </button>
         </form>
+
+        {!isQueryValid && query.trim().length > 0 && (
+          <div style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: '0.5rem', textAlign: 'center' }}>
+            Inserisci almeno 4 caratteri alfanumerici per avviare la ricerca.
+          </div>
+        )}
 
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center', marginTop: '1rem' }}>
           {Object.entries(statuses).map(([site, info]) => {

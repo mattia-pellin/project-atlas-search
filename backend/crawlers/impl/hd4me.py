@@ -14,68 +14,68 @@ class HD4MeCrawler(BaseCrawler):
         return True
 
     async def search(self, query: str, limit: int = 50) -> List[Dict[str, Any]]:
-        url = f"{self.base_url}?s={urllib.parse.quote(query)}"
+        url = f"{self.base_url}lista-film/"
         html = await self.fetch_html(url)
         soup = BeautifulSoup(html, 'lxml')
         
-        results = []
-        articles = soup.select('article')
-        for article in articles[:limit]:
-            title_tag = article.find('h2', class_='entry-title')
-            if not title_tag:
+        keywords = [k.lower() for k in query.split() if len(k) > 2]
+        if not keywords:
+            # If query has no words > 2 chars, fallback to an exact match or return empty
+            keywords = [query.lower()]
+            
+        links = soup.select('ul.listaul li a')
+        matched_results = []
+        
+        for a in links:
+            text = a.text.strip().lower()
+            if not text:
                 continue
+            if all(kw in text for kw in keywords):
+                matched_results.append({
+                    "title": a.text.strip(),
+                    "url": a.get('href', ''),
+                    "poster": None,
+                    "quality": self.extract_quality(a.text.strip()),
+                    "date": "Unknown",
+                    "site": self.name
+                })
+                if len(matched_results) >= limit:
+                    break
+        
+        async def fetch_details(result):
+            if not result["url"].startswith('http'):
+                result["url"] = self.base_url.rstrip('/') + result["url"]
                 
-            a_tag = title_tag.find('a')
-            if not a_tag:
-                continue
-                
-            title = a_tag.text.strip()
-            link = a_tag.get('href', '')
-            
-            poster = None
-            img = article.find('img', id='cov') or article.find('img')
-            if img:
-                poster = img.get('src')
-            
-            quality = self.extract_quality(title)
-            
-            # We will fill the date concurrently by visiting the article
-            results.append({
-                "title": title,
-                "url": link,
-                "poster": poster,
-                "quality": quality,
-                "date": "Unknown",
-                "site": self.name
-            })
-            
-        async def fetch_date(result):
             try:
                 page_html = await self.fetch_html(result["url"])
                 page_soup = BeautifulSoup(page_html, 'lxml')
                 article_content = page_soup.find('article') or page_soup
                 
-                # Bottom left date extraction
+                # Extract poster
+                img = article_content.find('img', id='cov') or article_content.find('img')
+                if img:
+                    result["poster"] = img.get('src')
+                
+                # Extract date
                 meta = article_content.find('footer', class_='entry-footer')
                 if meta:
                     posted_on = meta.find('span', class_='posted-on')
                     if posted_on:
                         date_str = posted_on.text.strip()
-                        # Extract the date part and normalize
                         match = re.search(r'(\d{1,2}\s+[A-Za-z]+\s+\d{4})', date_str)
                         if match:
                             result["date"] = self.normalize_date(match.group(1))
                             return
                 
-                # Fallback to regex on text
+                # Fallback Date extraction
                 date_match = re.search(r'\b(\d{1,2}\s+(?:Gennaio|Febbraio|Marzo|Aprile|Maggio|Giugno|Luglio|Agosto|Settembre|Ottobre|Novembre|Dicembre)\s+\d{4})\b', article_content.text, re.I)
                 if date_match:
                     result["date"] = self.normalize_date(date_match.group(1))
             except Exception:
                 pass
 
-        await asyncio.gather(*(fetch_date(r) for r in results))
-        return results
+        await asyncio.gather(*(fetch_details(r) for r in matched_results))
+        return matched_results
 
     async def fetch_links(self, url: str) -> Dict[str, Any]:
         """
