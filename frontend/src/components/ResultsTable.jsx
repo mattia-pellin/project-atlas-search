@@ -433,7 +433,20 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
                                                                     navigator.clipboard.writeText(fetchedLinks[r.id].password);
                                                                     showToast("Password copied");
                                                                 }}
-                                                                style={{ background: 'none', border: 'none', color: 'var(--accent-color)', cursor: 'pointer', fontSize: '0.8rem', marginLeft: 'auto', textDecoration: 'underline' }}
+                                                                className="glass-button"
+                                                                style={{
+                                                                    marginLeft: 'auto',
+                                                                    padding: '4px 12px',
+                                                                    fontSize: '0.8rem',
+                                                                    background: 'rgba(255,255,255,0.05)',
+                                                                    border: '1px solid rgba(255,255,255,0.1)',
+                                                                    borderRadius: '6px',
+                                                                    color: 'var(--text-primary)',
+                                                                    cursor: 'pointer',
+                                                                    transition: 'all 0.2s'
+                                                                }}
+                                                                onMouseOver={(e) => e.target.style.background = 'rgba(255,255,255,0.1)'}
+                                                                onMouseOut={(e) => e.target.style.background = 'rgba(255,255,255,0.05)'}
                                                             >
                                                                 Copy
                                                             </button>
@@ -446,9 +459,9 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
                                                             return (
                                                                 <div key={h} style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
                                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.8rem', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.5rem' }}>
-                                                                        <Icon size={18} color={color} />
-                                                                        <span style={{ fontWeight: 600, textTransform: 'capitalize' }}>{h}</span>
-                                                                        <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginLeft: 'auto' }}>{links.length} links</span>
+                                                                        <Icon size={18} color={color} style={{ display: 'block' }} />
+                                                                        <span style={{ fontWeight: 600, textTransform: 'lowercase', lineHeight: 1 }}>{h}</span>
+                                                                        <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginLeft: 'auto', lineHeight: 1 }}>{links.length} links</span>
                                                                     </div>
                                                                     <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                                                                         {links.map((link, idx) => (

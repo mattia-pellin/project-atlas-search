@@ -272,7 +272,9 @@ class DLECrawler(BaseCrawler):
 
         # 4. Password
         password = None
-        pwd_match = re.search(r'(?i)password\s*[:\-]\s*([^\s<]+)', soup.get_text())
+        # Improved regex to capture text after "password:" until a new line or HTML tag,
+        # allowing for internal spaces (e.g., "iN SEGUiTO...") but stripping leading/trailing whitespace.
+        pwd_match = re.search(r'(?i)password\s*[:\-]\s*([^<\n\r]+)', soup.get_text())
         if pwd_match:
             password = pwd_match.group(1).strip()
 
