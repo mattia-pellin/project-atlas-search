@@ -108,10 +108,10 @@ function App() {
   return (
     <div className="app-container">
       <header>
-        <h1 className="logo" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Search size={32} color="var(--accent-color)" />
+        <h1 className="logo" style={{ display: 'flex', alignItems: 'center', gap: '12px', fontFamily: 'var(--logo-font)' }}>
+          <img src="/logo.png" alt="Logo" style={{ width: '40px', height: '40px', display: 'block' }} />
           Project: Atlas - Search
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 'normal', alignSelf: 'flex-end', marginBottom: '4px' }}>v1.0.0-beta</span>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 'normal', alignSelf: 'flex-end', marginBottom: '4px' }}>v1.0.0</span>
         </h1>
         <button className="settings-btn" onClick={() => setShowSettings(true)}>
           <Settings size={24} />

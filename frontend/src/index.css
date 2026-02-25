@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap');
+
 :root {
   /* Dark Mode Aesthetic Palette */
   --bg-color: #0d1117;
@@ -16,6 +18,7 @@
   --glass-blur: blur(12px);
 
   --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  --logo-font: 'Outfit', sans-serif;
 }
 
 body {
