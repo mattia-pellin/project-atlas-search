@@ -14,7 +14,7 @@ WORKDIR /app
 # Headed Chrome bypasses Cloudflare much better than headless mode
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        wget ca-certificates fonts-liberation xvfb && \
+    wget ca-certificates fonts-liberation xvfb && \
     wget -q -O /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
     apt-get install -y /tmp/chrome.deb && \
     rm /tmp/chrome.deb && \
@@ -25,6 +25,9 @@ RUN apt-get update && \
 # Copy backend requirements and install them
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Set PYTHONPATH to the current working directory so the backend package is found
+ENV PYTHONPATH=/app
 
 # Copy the backend code
 COPY backend/ ./backend/
