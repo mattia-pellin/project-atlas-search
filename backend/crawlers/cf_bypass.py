@@ -27,9 +27,16 @@ logger = logging.getLogger(__name__)
 
 # Cache of cleared cookies per domain
 _cf_cache: Dict[str, dict] = {}
-_cf_lock = asyncio.Lock()
+_cf_lock: Optional[asyncio.Lock] = None
 CF_CACHE_TTL = 300  # 5 minutes
 CDP_PORT = 19222
+
+def _get_cf_lock() -> asyncio.Lock:
+    """Lazily create the asyncio.Lock inside a running event loop."""
+    global _cf_lock
+    if _cf_lock is None:
+        _cf_lock = asyncio.Lock()
+    return _cf_lock
 
 _cmd_id = 0
 def _next_id() -> int:
@@ -106,7 +113,7 @@ async def get_cf_cookies(url: str, timeout: int = 25) -> Optional[Tuple[dict, st
     domain = urlparse(url).netloc
     base_url = f"{urlparse(url).scheme}://{domain}"
     
-    async with _cf_lock:
+    async with _get_cf_lock():
         cached = _cf_cache.get(domain)
         if cached and time.time() < cached["expires"]:
             logger.info(f"[CF Bypass] Using cached cookies for {domain}")

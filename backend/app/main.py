@@ -11,40 +11,48 @@ import json
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
 
-    # Automatically seed credentials if the file exists
-    creds_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "credentials.json")
-    if os.path.exists(creds_path):
-        try:
-            with open(creds_path, 'r', encoding='utf-8') as f:
-                creds_data = json.load(f)
-                
-            async with AsyncSessionLocal() as session:
-                for site_key, data in creds_data.items():
-                    stmt = select(SiteCredential).where(SiteCredential.site_key == site_key)
-                    result = await session.execute(stmt)
-                    existing = result.scalar_one_or_none()
+        # Automatically seed credentials if the file exists
+        creds_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "credentials.json")
+        if os.path.exists(creds_path):
+            try:
+                with open(creds_path, 'r', encoding='utf-8') as f:
+                    creds_data = json.load(f)
                     
-                    if existing:
-                        existing.username = data.get("username", existing.username)
-                        existing.password = data.get("password", existing.password)
-                        existing.custom_url = data.get("custom_url", existing.custom_url)
-                        existing.is_enabled = data.get("is_enabled", existing.is_enabled)
-                    else:
-                        new_cred = SiteCredential(
-                            site_key=site_key,
-                            username=data.get("username"),
-                            password=data.get("password"),
-                            custom_url=data.get("custom_url"),
-                            is_enabled=data.get("is_enabled", True)
-                        )
-                        session.add(new_cred)
-                await session.commit()
-                print("✅ Automatically seeded DB with credentials.json")
-        except Exception as e:
-            print(f"❌ Failed to seed credentials DB: {e}")
+                async with AsyncSessionLocal() as session:
+                    for site_key, data in creds_data.items():
+                        stmt = select(SiteCredential).where(SiteCredential.site_key == site_key)
+                        result = await session.execute(stmt)
+                        existing = result.scalar_one_or_none()
+                        
+                        if existing:
+                            existing.username = data.get("username", existing.username)
+                            existing.password = data.get("password", existing.password)
+                            existing.custom_url = data.get("custom_url", existing.custom_url)
+                            existing.is_enabled = data.get("is_enabled", existing.is_enabled)
+                        else:
+                            new_cred = SiteCredential(
+                                site_key=site_key,
+                                username=data.get("username"),
+                                password=data.get("password"),
+                                custom_url=data.get("custom_url"),
+                                is_enabled=data.get("is_enabled", True)
+                            )
+                            session.add(new_cred)
+                    await session.commit()
+                    print("✅ Automatically seeded DB with credentials.json")
+            except Exception as e:
+                print(f"❌ Failed to seed credentials DB: {e}")
+        else:
+            print("ℹ️  No credentials.json found, skipping DB seed")
+    except Exception as e:
+        print(f"❌ Fatal startup error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
     yield
 
