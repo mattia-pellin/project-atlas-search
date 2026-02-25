@@ -148,16 +148,26 @@ class DLECrawler(BaseCrawler):
             
             # Extract Date from article text
             date = "Unknown"
-            date_match = re.search(r'\b(\d{1,2})[/-](\d{1,2})[/-](\d{4})\b', search_scope.text)
-            if date_match:
-                # Normalize to DD/MM/YYYY
-                d, m, y = date_match.groups()
-                date = f"{int(d):02d}/{int(m):02d}/{y}"
-            else:
-                # Try finding time tag
-                time_tag = search_scope.find('time')
-                if time_tag and time_tag.text:
-                    date = self.normalize_date(time_tag.text.strip())
+            
+            # 1. Try common DLE structured date containers
+            date_el = search_scope.find('time') or \
+                      search_scope.select_one('.date, .time, .arg-info span, .meta span, .arg-stat span')
+            
+            if date_el and date_el.text:
+                date = self.normalize_date(date_el.text.strip())
+            
+            # 2. Fallback: Search for numeric pattern (DD-MM-YYYY) in text
+            if date == "Unknown":
+                date_match = re.search(r'\b(\d{1,2})[/-](\d{1,2})[/-](\d{4})\b', search_scope.text)
+                if date_match:
+                    d, m, y = date_match.groups()
+                    date = f"{int(d):02d}/{int(m):02d}/{y}"
+
+            # 3. Last effort: Search for relative date keywords (Today, Yesterday, etc.) in text
+            if date == "Unknown":
+                rel_match = re.search(r'\b(Today|Yesterday|Oggi|Ieri|Domani|Domani)[^0-9]*(\d{1,2}:\d{2})?\b', search_scope.text, re.I)
+                if rel_match:
+                    date = self.normalize_date(rel_match.group(0))
 
             results.append({
                 "title": title,
