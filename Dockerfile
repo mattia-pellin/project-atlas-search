@@ -29,8 +29,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Set PYTHONPATH to the current working directory so the backend package is found
 ENV PYTHONPATH=/app
 
-# Copy the backend code
-COPY backend/ ./backend/
+# Copy everything to preserve directory structure (backend, __init__.py files, etc.)
+COPY . .
 
 # Copy the built frontend static files
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
