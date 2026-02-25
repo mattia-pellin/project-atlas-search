@@ -17,12 +17,16 @@ REGISTERED_CRAWLERS: Dict[str, Type[BaseCrawler]] = {
 }
 
 class CrawlerManager:
-    def __init__(self, query: str, limit: int = 50, credentials_map: Dict[str, Any] = None, dns_servers: str = "system"):
+    def __init__(self, query: str, limit: int = 50, credentials_map: Dict[str, Any] = None, dns_servers: str = "system", only_sites: List[str] = None):
         self.query = query
         self.limit = limit
         self.dns_servers = dns_servers
         self.crawlers = {}
         for name, cls in REGISTERED_CRAWLERS.items():
+            # If only_sites is provided, only include sites in that list
+            if only_sites is not None and name not in only_sites:
+                continue
+                
             creds = credentials_map.get(name, {}) if credentials_map else {}
             # Check if this site explicitly exists in DB and is disabled
             if creds and not creds.get("is_enabled", True):

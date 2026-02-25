@@ -17,7 +17,7 @@ router = APIRouter()
 @router.get("/search/stream")
 async def search_stream(request: Request, q: str, db: AsyncSession = Depends(get_db)):
     """
-    Server-Sent Events endpoint to stream search progress and results.
+    Server-Sent Events endpoint to stream search progress and results with granular caching.
     """
     # Fetch settings and credentials from DB
     result = await db.execute(select(AppSettings).limit(1))
@@ -29,47 +29,63 @@ async def search_stream(request: Request, q: str, db: AsyncSession = Depends(get
     
     force_refresh = request.query_params.get("force_refresh", "false").lower() == "true"
     
-    # Check cache first if enabled and not forced to refresh
-    if cache_enabled and not force_refresh:
-        cache_query = await db.execute(select(SearchCache).where(SearchCache.query == q))
-        cached_entry = cache_query.scalars().first()
-        if cached_entry:
-            # Check TTL
-            age_minutes = (datetime.datetime.utcnow() - cached_entry.timestamp).total_seconds() / 60
-            if age_minutes <= cache_ttl_minutes:
-                # Validate cached JSON
-                try:
-                    cached_results = json.loads(cached_entry.results_json)
-                    async def cached_generator():
-                        # Yield all cached objects formatted as SSE results
-                        for res in cached_results:
-                            wrapped = {"site": res.get("site", "cache"), "type": "results", "data": [res]}
-                            yield {"event": "results", "data": json.dumps(wrapped)}
-                        yield {"event": "done", "data": "{}"}
-                    return EventSourceResponse(cached_generator())
-                except Exception as e:
-                    # Invalid cache data, proceed to crawl normally
-                    pass
-
-    result = await db.execute(select(SiteCredential))
+    # Get all enabled sites from credentials
+    cred_result = await db.execute(select(SiteCredential))
     credentials = {c.site_key: {
         "username": c.username, 
         "password": c.password, 
         "custom_name": c.custom_name, 
         "custom_url": c.custom_url,
         "is_enabled": c.is_enabled
-    } for c in result.scalars().all()}
+    } for c in cred_result.scalars().all()}
     
+    # Filter only enabled sites for execution
+    enabled_sites = [s for s, data in credentials.items() if data.get("is_enabled", True)]
+    # Filter by user registered crawlers (to avoid sites not in code)
+    from backend.crawlers.manager import REGISTERED_CRAWLERS
+    active_sites = [s for s in enabled_sites if s in REGISTERED_CRAWLERS]
+    
+    sites_to_crawl = []
+    cached_results_by_site = {}
+
+    if cache_enabled and not force_refresh:
+        for site in active_sites:
+            cache_query = await db.execute(
+                select(SearchCache).where(SearchCache.query == q, SearchCache.site == site)
+            )
+            cached_entry = cache_query.scalars().first()
+            if cached_entry:
+                age_minutes = (datetime.datetime.now(datetime.timezone.utc) - 
+                              cached_entry.timestamp.replace(tzinfo=datetime.timezone.utc)).total_seconds() / 60
+                if age_minutes <= cache_ttl_minutes:
+                    try:
+                        cached_results_by_site[site] = json.loads(cached_entry.results_json)
+                        continue # Found in cache and valid
+                    except Exception:
+                        pass
+            # If we reach here, site is NOT in cache or cache is invalid/expired
+            sites_to_crawl.append(site)
+    else:
+        sites_to_crawl = active_sites
+
     async def event_generator():
-        queue = asyncio.Queue()
-        manager = CrawlerManager(query=q, limit=limit, credentials_map=credentials, dns_servers=dns_servers)
+        # 1. Yield all cached results immediately
+        for site, results in cached_results_by_site.items():
+            wrapped = {"site": site, "type": "results", "data": results}
+            yield {"event": "results", "data": json.dumps(wrapped)}
+            yield {"event": "status", "data": json.dumps({"site": site, "status": "completed", "count": len(results)})}
         
-        # Start background task that populates the queue
+        if not sites_to_crawl:
+            yield {"event": "done", "data": "{}"}
+            return
+
+        # 2. Start dynamic crawling for missing sites
+        queue = asyncio.Queue()
+        manager = CrawlerManager(query=q, limit=limit, credentials_map=credentials, dns_servers=dns_servers, only_sites=sites_to_crawl)
+        
         task = asyncio.create_task(manager.execute_parallel(queue))
-        local_accumulated_results = []
         
         while True:
-            # Check if client disconnected
             if await request.is_disconnected():
                 task.cancel()
                 break
@@ -77,29 +93,34 @@ async def search_stream(request: Request, q: str, db: AsyncSession = Depends(get
             item = await queue.get()
             
             if isinstance(item, dict) and item.get("type") == "done":
-                # Save to cache if enabled
-                if cache_enabled and local_accumulated_results:
-                    try:
-                        cache_query = await db.execute(select(SearchCache).where(SearchCache.query == q))
-                        cached_entry = cache_query.scalars().first()
-                        if not cached_entry:
-                            cached_entry = SearchCache(query=q)
-                            db.add(cached_entry)
-                        
-                        cached_entry.results_json = json.dumps(local_accumulated_results)
-                        cached_entry.timestamp = datetime.datetime.now(datetime.timezone.utc)
-                        await db.commit()
-                    except Exception as e:
-                        print(f"Failed to cache search results: {e}")
                 yield {"event": "done", "data": "{}"}
                 break
                 
-            # Serialize the yielded objects directly to JSON
             if hasattr(item, "model_dump_json"):
                 yield {"event": "status", "data": item.model_dump_json()}
             elif isinstance(item, dict) and item.get("type") == "results":
-                local_accumulated_results.extend(item.get("data", []))
+                # Save to cache individually per site
+                site = item.get("site")
+                if cache_enabled and site:
+                    try:
+                        site_results = item.get("data", [])
+                        cache_query = await db.execute(
+                            select(SearchCache).where(SearchCache.query == q, SearchCache.site == site)
+                        )
+                        cached_entry = cache_query.scalars().first()
+                        if not cached_entry:
+                            cached_entry = SearchCache(query=q, site=site)
+                            db.add(cached_entry)
+                        
+                        cached_entry.results_json = json.dumps(site_results)
+                        cached_entry.timestamp = datetime.datetime.now(datetime.timezone.utc)
+                        await db.commit()
+                    except Exception as e:
+                        print(f"Failed to cache results for {site}: {e}")
+                
                 yield {"event": "results", "data": json.dumps(item)}
+
+    return EventSourceResponse(event_generator())
 
     return EventSourceResponse(event_generator())
 

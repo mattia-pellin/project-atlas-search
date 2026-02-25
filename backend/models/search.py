@@ -6,6 +6,7 @@ class SearchCache(Base):
     __tablename__ = "search_cache"
 
     id = Column(Integer, primary_key=True, index=True)
-    query = Column(String, unique=True, index=True)
+    query = Column(String, index=True)
+    site = Column(String, index=True)
     results_json = Column(Text)
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
