@@ -209,7 +209,7 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
                 return <span className={`quality-badge ${qClass}`}>{r.quality || 'SD'}</span>;
             }
             case 'site':
-                return <span style={{ background: 'rgba(255,255,255,0.1)', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.8rem', textTransform: 'capitalize' }}>{r.site}</span>;
+                return <span style={{ background: 'rgba(255,255,255,0.1)', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.8rem', textTransform: 'capitalize', whiteSpace: 'nowrap', display: 'inline-block' }}>{r.site}</span>;
             case 'actions':
                 if (fetchingLinksFor[r.id]) {
                     return (
