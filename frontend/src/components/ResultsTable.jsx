@@ -53,14 +53,15 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
         { id: 'cover', label: 'Cover', width: '60px', sortable: false, filterable: false },
         { id: 'title', label: 'Title', width: 'auto', sortable: true, filterable: false },
         { id: 'date', label: 'Date', width: '120px', sortable: true, filterable: false },
-        { id: 'quality', label: 'Quality', width: '120px', sortable: true, filterable: true },
+        { id: 'quality', label: 'Quality', width: '100px', sortable: true, filterable: true },
+        { id: 'metadata', label: 'Metadata', width: '250px', sortable: false, filterable: true },
         { id: 'site', label: 'Site', width: '120px', sortable: true, filterable: true },
         { id: 'actions', label: 'Actions', width: '150px', sortable: false, filterable: false }
     ];
 
     const [columns, setColumns] = useState(initialColumns);
     const [sortConfig, setSortConfig] = useState({ key: 'auto', direction: 'desc' });
-    const [filters, setFilters] = useState({ quality: new Set(), site: new Set() });
+    const [filters, setFilters] = useState({ quality: new Set(), site: new Set(), metadata: new Set() });
     const [activeFilterMenu, setActiveFilterMenu] = useState(null);
 
     const filterMenuRef = useRef(null);
@@ -89,9 +90,21 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
             const rb = qualityRank[b.toLowerCase()] ?? -3;
             return rb - ra; // highest first
         });
+
+        // Metadata unique values (collect all non-null values from codec, audio, source, hdr)
+        const metaValues = new Set();
+        results.forEach(r => {
+            if (r.metadata) {
+                Object.values(r.metadata).forEach(v => {
+                    if (v) metaValues.add(v);
+                });
+            }
+        });
+
         return {
             quality: qualities,
-            site: [...new Set(results.map(r => r.site))].filter(Boolean).sort()
+            site: [...new Set(results.map(r => r.site))].filter(Boolean).sort(),
+            metadata: [...metaValues].sort()
         };
     }, [results]);
 
@@ -100,6 +113,10 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
         let filtered = results.filter(row => {
             if (filters.quality.size > 0 && !filters.quality.has(row.quality || 'N/A')) return false;
             if (filters.site.size > 0 && !filters.site.has(row.site)) return false;
+            if (filters.metadata.size > 0) {
+                const rowMeta = row.metadata ? Object.values(row.metadata).filter(Boolean) : [];
+                if (!rowMeta.some(v => filters.metadata.has(v))) return false;
+            }
             return true;
         });
 
@@ -207,6 +224,18 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
                 else if (q === '576p' || q === '576i') qClass = 'q-576p';
                 else if (q === '480p' || q === '480i') qClass = 'q-480p';
                 return <span className={`quality-badge ${qClass}`}>{r.quality || 'SD'}</span>;
+            }
+            case 'metadata': {
+                if (!r.metadata) return null;
+                const { codec, audio, source, hdr } = r.metadata;
+                return (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', justifyContent: 'center' }}>
+                        {source && <span className="meta-badge source-badge">{source}</span>}
+                        {codec && <span className="meta-badge codec-badge">{codec}</span>}
+                        {audio && <span className="meta-badge audio-badge">{audio}</span>}
+                        {hdr && <span className="meta-badge hdr-badge">{hdr}</span>}
+                    </div>
+                );
             }
             case 'site':
                 return <span style={{ background: 'rgba(255,255,255,0.1)', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.8rem', textTransform: 'capitalize', whiteSpace: 'nowrap', display: 'inline-block' }}>{r.site}</span>;

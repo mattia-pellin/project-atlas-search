@@ -89,8 +89,7 @@ class BaseCrawler:
 
     def extract_quality(self, title: str) -> str:
         """
-        Robustly extract video quality/resolution from a release title using guessit.
-        Falls back to regex if guessit fails or is not installed.
+        Extract video resolution from a release title.
         """
         import re
         quality = "N/A"
@@ -101,15 +100,12 @@ class BaseCrawler:
                 quality = str(guess['screen_size'])
             elif 'video_resolution' in guess:
                 quality = str(guess['video_resolution'])
-            elif 'quality' in guess:
-                quality = str(guess['quality'])
             
         except Exception:
             pass
 
         if quality != "N/A":
-            quality = quality.lower().lstrip('m')
-            # Normalize formats
+            quality = str(quality).lower().lstrip('m')
             if quality in ('4k', '2160p'):
                 quality = '2160p'
             elif quality in ('1080p', '1080i', '1080'):
@@ -118,7 +114,6 @@ class BaseCrawler:
                 quality = '720p'
         
         if quality == "N/A":
-            # Fallback to simple regex
             q_match = re.search(r'(?i)\b(m?480[pi]?|m?576[pi]?|m?720[pi]?|m?1080[pi]?|m?2160[pi]?|m?4k)\b', title)
             if q_match:
                 q = q_match.group(1).lower().lstrip('m')
@@ -131,6 +126,59 @@ class BaseCrawler:
                 quality = q
                 
         return quality
+
+    def extract_metadata(self, title: str) -> Dict[str, Any]:
+        """
+        Extract detailed metadata (codec, audio, source, hdr) using guessit.
+        """
+        metadata = {
+            "codec": None,
+            "audio": None,
+            "source": None,
+            "hdr": None
+        }
+        try:
+            import guessit
+            guess = guessit.guessit(title)
+            
+            # Codec
+            codec = guess.get("video_codec")
+            if codec:
+                metadata["codec"] = str(codec)
+            
+            # Audio
+            audio = guess.get("audio_codec")
+            if audio:
+                if isinstance(audio, list):
+                    metadata["audio"] = " ".join([str(a) for a in audio])
+                else:
+                    metadata["audio"] = str(audio)
+                
+                channels = guess.get("audio_channels")
+                if channels:
+                    metadata["audio"] += f" {channels}"
+            
+            # Source
+            source = guess.get("source")
+            if source:
+                metadata["source"] = str(source)
+                
+            # HDR / Other
+            other = guess.get("other")
+            if other:
+                if isinstance(other, list):
+                    other_str = " ".join([str(o) for o in other])
+                else:
+                    other_str = str(other)
+                
+                # Check specifically for HDR/DV
+                if any(x in other_str.lower() for x in ["hdr", "dolby vision", "dv"]):
+                    metadata["hdr"] = other_str
+            
+        except Exception:
+            pass
+            
+        return metadata
         
     def normalize_date(self, date_str: str) -> str:
         """

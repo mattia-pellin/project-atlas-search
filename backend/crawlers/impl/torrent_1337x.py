@@ -64,6 +64,7 @@ class Torrent1337xCrawler(BaseCrawler):
                  link = self.base_url + a_tags[1]['href']
                  size_td = row.find('td', class_='size')
                  quality = self.extract_quality(title)
+                 metadata = self.extract_metadata(title)
                      
                  date_td = row.find('td', class_='coll-date')
                  date = self.normalize_date(date_td.text.strip()) if date_td else 'Unknown'
@@ -73,6 +74,7 @@ class Torrent1337xCrawler(BaseCrawler):
                      "url": link,
                      "poster": None,
                      "quality": quality,
+                     "metadata": metadata,
                      "date": date,
                      "site": self.name
                  })

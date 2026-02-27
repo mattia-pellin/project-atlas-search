@@ -145,6 +145,7 @@ class DLECrawler(BaseCrawler):
                  
             # Extract Quality from title using shared method
             quality = self.extract_quality(title)
+            metadata = self.extract_metadata(title)
             
             # Extract Date from article text
             date = "Unknown"
@@ -174,6 +175,7 @@ class DLECrawler(BaseCrawler):
                 "url": link,
                 "poster": poster,
                 "quality": quality,
+                "metadata": metadata,
                 "date": date,
                 "site": self.name
             })
