@@ -74,7 +74,21 @@ async def search_stream(request: Request, q: str, db: AsyncSession = Depends(get
 
     async def event_generator():
         # 1. Yield all cached results immediately
+        from backend.crawlers.base import BaseCrawler
+        crawler_tool = BaseCrawler()
+        
         for site, results in cached_results_by_site.items():
+            # Migrate old cache entries to include metadata
+            cache_updated = False
+            for r in results:
+                if 'metadata' not in r or r.get('metadata') is None:
+                    r['metadata'] = crawler_tool.extract_metadata(r['title'])
+                    cache_updated = True
+            
+            if cache_updated:
+                # Optionally update DB, but for now just yield enriched results
+                pass
+
             wrapped = {"site": site, "type": "results", "data": results}
             yield {"event": "results", "data": json.dumps(wrapped)}
             yield {"event": "status", "data": json.dumps({"site": site, "status": "completed", "count": len(results)})}

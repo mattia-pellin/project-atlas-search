@@ -390,9 +390,9 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
                             {columns.map(col => (
                                 <th
                                     key={col.id}
-                                    style={{ width: col.width, textAlign: (['cover', 'date', 'quality', 'site', 'actions'].includes(col.id) ? 'center' : 'left'), position: 'relative' }}
+                                    style={{ width: col.width, textAlign: (['cover', 'date', 'quality', 'metadata', 'site', 'actions'].includes(col.id) ? 'center' : 'left'), position: 'relative' }}
                                 >
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: (['cover', 'date', 'quality', 'site', 'actions'].includes(col.id) ? 'center' : 'flex-start'), paddingRight: '0' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: (['cover', 'date', 'quality', 'metadata', 'site', 'actions'].includes(col.id) ? 'center' : 'flex-start'), paddingRight: '0' }}>
                                         <span style={{ cursor: col.sortable ? 'pointer' : 'default', userSelect: 'none', display: 'flex', alignItems: 'center' }} onClick={() => col.sortable && handleSort(col.id)}>
                                             {col.label}
                                             {sortConfig.key === col.id && (
@@ -442,7 +442,7 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
                             <React.Fragment key={r.id}>
                                 <tr className={expandedId === r.id ? 'expanded' : ''}>
                                     {columns.map(col => (
-                                        <td key={`${r.id}-${col.id}`} style={{ textAlign: (['cover', 'date', 'quality', 'site', 'actions'].includes(col.id) ? 'center' : 'left') }}>
+                                        <td key={`${r.id}-${col.id}`} style={{ textAlign: (['cover', 'date', 'quality', 'metadata', 'site', 'actions'].includes(col.id) ? 'center' : 'left') }}>
                                             {renderCell(col.id, r)}
                                         </td>
                                     ))}
