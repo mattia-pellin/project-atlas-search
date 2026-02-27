@@ -111,7 +111,7 @@ function App() {
         <h1 className="logo" style={{ display: 'flex', alignItems: 'center', gap: '12px', fontFamily: 'var(--logo-font)' }}>
           <img src="/logo.png" alt="Logo" style={{ width: '40px', height: '40px', display: 'block' }} />
           Project: Atlas - Search
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 'normal', alignSelf: 'flex-end', marginBottom: '4px' }}>v1.1.5</span>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 'normal', alignSelf: 'flex-end', marginBottom: '4px' }}>v1.1.6</span>
         </h1>
         <button className="settings-btn" onClick={() => setShowSettings(true)}>
           <Settings size={24} />
@@ -134,12 +134,6 @@ function App() {
             {isSearching ? <Loader2 className="animate-spin" size={24} /> : <Search size={24} />}
           </button>
         </form>
-
-        {!isQueryValid && query.trim().length > 0 && (
-          <div style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: '0.5rem', textAlign: 'center' }}>
-            Inserisci almeno 4 caratteri alfanumerici per avviare la ricerca.
-          </div>
-        )}
 
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center', marginTop: '1rem' }}>
           {Object.entries(statuses).map(([site, info]) => {
@@ -190,9 +184,9 @@ function App() {
         />
       )}
 
-      {!isSearching && results.length === 0 && hasSearched && (
+      {!isSearching && results.length === 0 && (hasSearched || (!isQueryValid && query.trim().length > 0)) && (
         <div style={{ textAlign: 'center', color: 'var(--text-secondary)', marginTop: '2rem' }}>
-          No results found for "{query}".
+          {!isQueryValid ? "Inserisci almeno 4 caratteri alfanumerici per avviare la ricerca." : `No results found for "${query}".`}
         </div>
       )}
     </div>
