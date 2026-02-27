@@ -237,6 +237,7 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
             }
             case 'metadata': {
                 if (!r.metadata) return null;
+                const { codec, audio, source, hdr, languages } = r.metadata;
                 return (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', justifyContent: 'center' }}>
                         {source && <span className="meta-badge source-badge">{source}</span>}
