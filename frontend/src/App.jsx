@@ -23,8 +23,8 @@ function App() {
 
   const [lastSearchedQuery, setLastSearchedQuery] = useState('');
 
-  const alphanumericCount = query.replace(/[^a-zA-Z0-9]/g, '').length;
-  const isQueryValid = alphanumericCount >= 4;
+  const nonSpaceCount = query.replace(/\s/g, '').length;
+  const isQueryValid = nonSpaceCount >= 4;
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -114,7 +114,7 @@ function App() {
         <h1 className="logo" style={{ display: 'flex', alignItems: 'center', gap: '12px', fontFamily: 'var(--logo-font)' }}>
           <img src="/logo.png" alt="Logo" style={{ width: '40px', height: '40px', display: 'block' }} />
           Project: Atlas - Search
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 'normal', alignSelf: 'flex-end', marginBottom: '4px' }}>v1.1.9</span>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 'normal', alignSelf: 'flex-end', marginBottom: '4px' }}>v1.1.11</span>
         </h1>
         <button className="settings-btn" onClick={() => setShowSettings(true)}>
           <Settings size={24} />
@@ -192,7 +192,7 @@ function App() {
 
       {!isSearching && results.length === 0 && (hasSearched || (!isQueryValid && query.trim().length > 0)) && (
         <div style={{ textAlign: 'center', color: 'var(--text-secondary)', marginTop: '0.3rem' }}>
-          {!isQueryValid ? "Inserisci almeno 4 caratteri alfanumerici per avviare la ricerca." : `No results found for "${lastSearchedQuery}".`}
+          {!isQueryValid ? "Inserisci almeno 4 caratteri validi (esclusi gli spazi) per avviare la ricerca." : `No results found for "${lastSearchedQuery}".`}
         </div>
       )}
     </div>

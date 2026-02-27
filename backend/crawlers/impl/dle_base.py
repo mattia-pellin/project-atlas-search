@@ -33,12 +33,19 @@ class DLECrawler(BaseCrawler):
         # Use DLE advanced search parameters to bypass short-word limits
         # all_word_seach=1 enforces exact match, and titleonly=3 limits search to titles only
         cleaned_query = self.clean_query(query)
+        
+        # Use '1' (exact phrase) if the query didn't change (preserved).
+        # Use '0' (AND search) if words were removed/modified by clean_query,
+        # because the exact phrase match would now fail on most DLE sites.
+        is_modified = query.strip().lower() != cleaned_query.strip().lower()
+        search_mode = "0" if is_modified else "1"
+        
         search_data = {
             "do": "search",
             "subaction": "search",
             "story": cleaned_query,
             "full_search": "1",
-            "all_word_seach": "1",
+            "all_word_seach": search_mode,
             "titleonly": "3"
         }
         search_url = f"{self.base_url.rstrip('/')}/index.php?do=search"

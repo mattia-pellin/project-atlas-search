@@ -5,7 +5,7 @@ Queste regole sono state definite per garantire la stabilità dei crawler e la t
 ## 1. Modifiche al Backend
 Ogni volta che viene modificato il codice del backend:
 - **Test**: Devono essere eseguiti i test dei crawler (`pytest backend/test_crawlers.py`).
-- **Container**: Il container locale deve essere aggiornato per permettere i test e riflettere le modifiche.
+- **Container**: Ad ogni modifica il container locale deve essere aggiornato sfruttando la cache di docker build per permettere i test e riflettere le modifiche.
 
 ## 2. Versionamento (SemVer)
 - Ad ogni modifica richiesta, deve essere effettuato un **bump dell'ultima semver** (patch version).

@@ -288,9 +288,9 @@ class BaseCrawler:
     def clean_query(self, query: str) -> str:
         """
         Clean the query by removing Italian articles, prepositions, 
-        and words shorter than 2 characters.
+        and words strictly equal to 1 character long, treating anything
+        separated by spaces as an indivisible entity.
         """
-        import re
         # Articles, Simple Prepositions, Articulate Prepositions
         _FILTER_WORDS = {
             'il', 'lo', 'la', 'i', 'gli', 'le', 'un', 'uno', 'una',
@@ -303,19 +303,21 @@ class BaseCrawler:
             'pel', 'pei'
         }
         
-        # Replace apostrophes and non-alphanumeric (except spaces) with space
-        # e.g., "L'amore" -> "L amore"
+        import re
+        
+        # Replace apostrophes with space so "L'amore" -> "L amore"
         text = re.sub(r"['’]", " ", query)
-        text = re.sub(r"[^\w\s]", " ", text)
         
         words = text.split()
         cleaned_words = []
         for w in words:
-            w_low = w.lower()
-            if len(w_low) < 2:
+            if len(w) == 1:
                 continue
-            if w_low in _FILTER_WORDS:
+            
+            w_norm = w.lower()
+            if w_norm in _FILTER_WORDS:
                 continue
+                
             cleaned_words.append(w)
             
         return " ".join(cleaned_words)
