@@ -32,10 +32,11 @@ class DLECrawler(BaseCrawler):
         
         # Use DLE advanced search parameters to bypass short-word limits
         # all_word_seach=1 enforces exact match, and titleonly=3 limits search to titles only
+        cleaned_query = self.clean_query(query)
         search_data = {
             "do": "search",
             "subaction": "search",
-            "story": query,
+            "story": cleaned_query,
             "full_search": "1",
             "all_word_seach": "1",
             "titleonly": "3"

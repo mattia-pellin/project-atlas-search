@@ -77,6 +77,16 @@ async def search_stream(request: Request, q: str, db: AsyncSession = Depends(get
         from backend.crawlers.base import BaseCrawler
         crawler_tool = BaseCrawler()
         
+        # 0. Validate query first
+        if not crawler_tool.validate_query(q):
+            yield {"event": "status", "data": json.dumps({
+                "site": "System", 
+                "status": "error", 
+                "error_message": "Ricerca troppo generica o nulla. Inserisci termini più specifici (es. escludendo articoli e preposizioni)."
+            })}
+            yield {"event": "done", "data": "{}"}
+            return
+
         for site, results in cached_results_by_site.items():
             # Migrate old cache entries to include metadata
             cache_updated = False

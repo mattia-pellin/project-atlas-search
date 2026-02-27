@@ -285,3 +285,54 @@ class BaseCrawler:
             pass
         return "Unknown"
 
+    def clean_query(self, query: str) -> str:
+        """
+        Clean the query by removing Italian articles, prepositions, 
+        and words shorter than 2 characters.
+        """
+        import re
+        # Articles, Simple Prepositions, Articulate Prepositions
+        _FILTER_WORDS = {
+            'il', 'lo', 'la', 'i', 'gli', 'le', 'un', 'uno', 'una',
+            'di', 'a', 'da', 'in', 'con', 'su', 'per', 'tra', 'fra',
+            'del', 'dello', 'della', 'dei', 'degli', 'delle',
+            'al', 'allo', 'alla', 'ai', 'agli', 'alle',
+            'dal', 'dallo', 'dalla', 'dai', 'dagli', 'dalle',
+            'nel', 'nello', 'nella', 'nei', 'negli', 'nelle',
+            'col', 'coi', 'sul', 'sullo', 'sulla', 'sui', 'sugli', 'sulle',
+            'pel', 'pei'
+        }
+        
+        # Replace apostrophes and non-alphanumeric (except spaces) with space
+        # e.g., "L'amore" -> "L amore"
+        text = re.sub(r"['’]", " ", query)
+        text = re.sub(r"[^\w\s]", " ", text)
+        
+        words = text.split()
+        cleaned_words = []
+        for w in words:
+            w_low = w.lower()
+            if len(w_low) < 2:
+                continue
+            if w_low in _FILTER_WORDS:
+                continue
+            cleaned_words.append(w)
+            
+        return " ".join(cleaned_words)
+
+    def validate_query(self, query: str) -> bool:
+        """
+        Validate the query based on the 'at least one word >= 4 chars OR two words >= 3 chars' rule
+        applied to the CLEANED query.
+        """
+        cleaned = self.clean_query(query)
+        words = cleaned.split()
+        
+        if not words:
+            return False
+            
+        count_ge_4 = sum(1 for w in words if len(w) >= 4)
+        count_ge_3 = sum(1 for w in words if len(w) >= 3)
+        
+        return count_ge_4 >= 1 or count_ge_3 >= 2
+
