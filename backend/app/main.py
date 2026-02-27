@@ -59,7 +59,6 @@ async def lifespan(app: FastAPI):
 
     yield
 
-# Mock comment to verify the automated backend-change workflow
 app = FastAPI(title="Project Atlas Search API", lifespan=lifespan)
 
 # Add CORS for local Vite development

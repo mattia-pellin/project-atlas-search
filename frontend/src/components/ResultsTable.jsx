@@ -91,12 +91,16 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
             return rb - ra; // highest first
         });
 
-        // Metadata unique values (collect all non-null values from codec, audio, source, hdr)
+        // Metadata unique values (collect all non-null values from codec, audio list, source, hdr)
         const metaValues = new Set();
         results.forEach(r => {
             if (r.metadata) {
                 Object.values(r.metadata).forEach(v => {
-                    if (v) metaValues.add(v);
+                    if (Array.isArray(v)) {
+                        v.forEach(item => { if (item) metaValues.add(item); });
+                    } else if (v) {
+                        metaValues.add(v);
+                    }
                 });
             }
         });
@@ -114,7 +118,13 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
             if (filters.quality.size > 0 && !filters.quality.has(row.quality || 'N/A')) return false;
             if (filters.site.size > 0 && !filters.site.has(row.site)) return false;
             if (filters.metadata.size > 0) {
-                const rowMeta = row.metadata ? Object.values(row.metadata).filter(Boolean) : [];
+                const rowMeta = [];
+                if (row.metadata) {
+                    Object.values(row.metadata).forEach(v => {
+                        if (Array.isArray(v)) rowMeta.push(...v.filter(Boolean));
+                        else if (v) rowMeta.push(v);
+                    });
+                }
                 if (!rowMeta.some(v => filters.metadata.has(v))) return false;
             }
             return true;
@@ -232,7 +242,10 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', justifyContent: 'center' }}>
                         {source && <span className="meta-badge source-badge">{source}</span>}
                         {codec && <span className="meta-badge codec-badge">{codec}</span>}
-                        {audio && <span className="meta-badge audio-badge">{audio}</span>}
+                        {Array.isArray(audio) ?
+                            audio.map((a, i) => <span key={i} className="meta-badge audio-badge">{a}</span>) :
+                            (audio && <span className="meta-badge audio-badge">{audio}</span>)
+                        }
                         {hdr && <span className="meta-badge hdr-badge">{hdr}</span>}
                     </div>
                 );

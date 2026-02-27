@@ -131,9 +131,10 @@ class BaseCrawler:
         """
         Extract detailed metadata (codec, audio, source, hdr) using guessit.
         """
+        import re
         metadata = {
             "codec": None,
-            "audio": None,
+            "audio": [],
             "source": None,
             "hdr": None
         }
@@ -141,39 +142,78 @@ class BaseCrawler:
             import guessit
             guess = guessit.guessit(title)
             
-            # Codec
+            # 1. Codec
             codec = guess.get("video_codec")
             if codec:
                 metadata["codec"] = str(codec)
             
-            # Audio
-            audio = guess.get("audio_codec")
-            if audio:
-                if isinstance(audio, list):
-                    metadata["audio"] = " ".join([str(a) for a in audio])
-                else:
-                    metadata["audio"] = str(audio)
-                
-                channels = guess.get("audio_channels")
-                if channels:
-                    metadata["audio"] += f" {channels}"
-            
-            # Source
+            # 2. Source
             source = guess.get("source")
             if source:
                 metadata["source"] = str(source)
                 
-            # HDR / Other
-            other = guess.get("other")
-            if other:
-                if isinstance(other, list):
-                    other_str = " ".join([str(o) for o in other])
+            # 3. Audio & MD (Mic Dubbed) - Separate tracks
+            audio_tags = []
+            
+            # Check audio_codec
+            ac = guess.get("audio_codec")
+            if ac:
+                if isinstance(ac, list):
+                    audio_tags.extend([str(a) for a in ac])
                 else:
-                    other_str = str(other)
+                    audio_tags.append(str(ac))
+            
+            # Check for MD / Mic Dubbed
+            other_tags = guess.get("other", [])
+            if isinstance(other_tags, str): other_tags = [other_tags]
+            
+            is_md = False
+            for o in other_tags:
+                o_str = str(o).lower()
+                if "mic dubbed" in o_str or o_str == "md" or "md " in o_str:
+                    is_md = True
+                    break
+            if not is_md and re.search(r'\bMD\b', title, re.I):
+                is_md = True
                 
-                # Check specifically for HDR/DV
-                if any(x in other_str.lower() for x in ["hdr", "dolby vision", "dv"]):
-                    metadata["hdr"] = other_str
+            if is_md:
+                audio_tags.append("MD")
+                
+            # Language tags
+            langs = guess.get("language")
+            if langs:
+                if isinstance(langs, list):
+                    audio_tags.extend([str(l) for l in langs])
+                else:
+                    audio_tags.append(str(langs))
+                    
+            # Audio channels
+            channels = guess.get("audio_channels")
+            if channels:
+                audio_tags.append(str(channels))
+            
+            metadata["audio"] = list(dict.fromkeys(audio_tags)) # Preserves order, removes duplicates
+            
+            # 4. HDR cleanup and simplification (Unified "HDR" tag)
+            is_hdr = False
+            for o in other_tags:
+                o_str = str(o).lower()
+                if any(x in o_str for x in ["hdr", "dolby vision", "dv"]):
+                    is_hdr = True
+                    break
+            
+            if is_hdr:
+                metadata["hdr"] = "HDR"
+                
+            # 5. Filter out resolution tags from all fields
+            res_tags = ["2160p", "1080p", "720p", "4k", "uhd"]
+            
+            if metadata["codec"] and metadata["codec"].lower() in res_tags:
+                metadata["codec"] = None
+            if metadata["source"] and metadata["source"].lower() in res_tags:
+                metadata["source"] = None
+            if metadata["audio"]:
+                metadata["audio"] = [a for a in metadata["audio"] if str(a).lower() not in res_tags]
             
         except Exception:
             pass
