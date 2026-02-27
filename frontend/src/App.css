@@ -252,6 +252,12 @@ h1.logo {
   border-color: rgba(245, 158, 11, 0.3);
 }
 
+.lang-badge {
+  background: rgba(45, 212, 191, 0.15);
+  color: #2dd4bf;
+  border-color: rgba(45, 212, 191, 0.3);
+}
+
 @keyframes pulse {
   0% {
     transform: scale(0.95);

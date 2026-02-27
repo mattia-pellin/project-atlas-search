@@ -91,7 +91,7 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
             return rb - ra; // highest first
         });
 
-        // Metadata unique values (collect all non-null values from codec, audio list, source, hdr)
+        // Metadata unique values (collect all non-null values)
         const metaValues = new Set();
         results.forEach(r => {
             if (r.metadata) {
@@ -237,15 +237,16 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
             }
             case 'metadata': {
                 if (!r.metadata) return null;
-                const { codec, audio, source, hdr } = r.metadata;
                 return (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', justifyContent: 'center' }}>
                         {source && <span className="meta-badge source-badge">{source}</span>}
                         {codec && <span className="meta-badge codec-badge">{codec}</span>}
-                        {Array.isArray(audio) ?
-                            audio.map((a, i) => <span key={i} className="meta-badge audio-badge">{a}</span>) :
-                            (audio && <span className="meta-badge audio-badge">{audio}</span>)
-                        }
+                        {Array.isArray(audio) && audio.map((a, i) => (
+                            <span key={`audio-${i}`} className="meta-badge audio-badge">{a}</span>
+                        ))}
+                        {Array.isArray(languages) && languages.map((l, i) => (
+                            <span key={`lang-${i}`} className="meta-badge lang-badge">{l}</span>
+                        ))}
                         {hdr && <span className="meta-badge hdr-badge">{hdr}</span>}
                     </div>
                 );
