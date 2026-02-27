@@ -132,10 +132,8 @@ class BaseCrawler:
         Extract detailed metadata (codec, audio, source, hdr) using guessit.
         """
         import re
-        # Pre-process title: replace slashes in language-like tags with spaces to help guessit
-        # (e.g. Ita/Eng -> Ita Eng)
-        clean_title = re.sub(r'([a-zA-Z]{2,3})/([a-zA-Z]{2,3})', r'\1 \2', title)
-        clean_title = re.sub(r'/([a-zA-Z]{2,3})', r' \1', clean_title)
+        # Pre-process title: replace slashes with spaces to help guessit detect multiple tags
+        clean_title = title.replace("/", " ")
 
         metadata = {
             "codec": None,
@@ -163,7 +161,7 @@ class BaseCrawler:
             source = guess.get("source")
             if source:
                 src_str = str(source).lower()
-                if any(x in src_str for x in ["blu-ray", "bdrip"]):
+                if any(x in src_str for x in ["blu-ray", "bdrip", "brrip", "bluray"]):
                     metadata["source"] = "Blu-ray"
                 elif "web" in src_str:
                     metadata["source"] = "WEB-DL"
@@ -171,13 +169,20 @@ class BaseCrawler:
                     metadata["source"] = "DVD"
                 else:
                     metadata["source"] = str(source)
+            
+            # Manual fallback for BRRip/BluRay if guessit misses it
+            if not metadata["source"]:
+                if re.search(r'\b(BRRip|BluRay|BD|BDRip)\b', title, re.I):
+                    metadata["source"] = "Blu-ray"
                 
             # 3. Audio Tracks (Codec ONLY)
             AUDIO_MAP = {
-                "dolby digital": "AC3",
                 "dolby digital plus": "E-AC3",
+                "dolby digital": "AC3",
                 "dolby truehd": "TrueHD",
                 "dts-hd master audio": "DTS-HD",
+                "dts-hd high resolution audio": "DTS-HD",
+                "dts-hd": "DTS-HD",
                 "dts": "DTS"
             }
             
@@ -185,14 +190,17 @@ class BaseCrawler:
             if not isinstance(ac_list, list): ac_list = [ac_list]
             
             audio_tracks = []
+            sorted_keys = sorted(AUDIO_MAP.keys(), key=len, reverse=True)
             for codec in ac_list:
                 if not codec: continue
                 c_low = str(codec).lower()
-                mapped = AUDIO_MAP.get(c_low)
-                if not mapped:
-                    for k, v in AUDIO_MAP.items():
+                mapped = None
+                if c_low in AUDIO_MAP:
+                    mapped = AUDIO_MAP[c_low]
+                else:
+                    for k in sorted_keys:
                         if k in c_low:
-                            mapped = v
+                            mapped = AUDIO_MAP[k]
                             break
                 audio_tracks.append(mapped if mapped else str(codec))
                 
@@ -208,7 +216,8 @@ class BaseCrawler:
                 "ing": "en",
                 "spa": "es", "spanish": "es",
                 "fra": "fr", "french": "fr",
-                "ger": "de", "german": "de"
+                "ger": "de", "german": "de",
+                "it": "it", "en": "en", "es": "es", "fr": "fr", "de": "de"
             }
             
             langs = guess.get("language", [])
@@ -218,7 +227,7 @@ class BaseCrawler:
             for l in langs:
                 if l: found_langs.append(str(l).lower())
             
-            # Manual regex fallback for common tags like Ita/Eng/Spa
+            # Manual regex fallback for common tags like Ita/Eng/Spa/Ing
             for key, val in LANG_MAP.items():
                 if re.search(r'\b' + key + r'\b', title, re.I):
                     found_langs.append(val)
