@@ -21,6 +21,8 @@ function App() {
   const [qualityFilter, setQualityFilter] = useState('All');
   const [siteFilter, setSiteFilter] = useState('All');
 
+  const [lastSearchedQuery, setLastSearchedQuery] = useState('');
+
   const alphanumericCount = query.replace(/[^a-zA-Z0-9]/g, '').length;
   const isQueryValid = alphanumericCount >= 4;
 
@@ -28,6 +30,7 @@ function App() {
     e.preventDefault();
     if (!isQueryValid || isSearching) return;
 
+    setLastSearchedQuery(query);
     setIsSearching(true);
     setResults([]);
     setStatuses({});
@@ -111,7 +114,7 @@ function App() {
         <h1 className="logo" style={{ display: 'flex', alignItems: 'center', gap: '12px', fontFamily: 'var(--logo-font)' }}>
           <img src="/logo.png" alt="Logo" style={{ width: '40px', height: '40px', display: 'block' }} />
           Project: Atlas - Search
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 'normal', alignSelf: 'flex-end', marginBottom: '4px' }}>v1.1.6</span>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 'normal', alignSelf: 'flex-end', marginBottom: '4px' }}>v1.1.7</span>
         </h1>
         <button className="settings-btn" onClick={() => setShowSettings(true)}>
           <Settings size={24} />
@@ -120,7 +123,7 @@ function App() {
 
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
 
-      <div className="search-section">
+      <div className="search-section" style={{ margin: '2rem 0 1rem 0' }}>
         <form onSubmit={handleSearch} style={{ display: 'flex', width: '100%', maxWidth: '600px', position: 'relative' }}>
           <input
             type="text"
@@ -135,7 +138,7 @@ function App() {
           </button>
         </form>
 
-        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center', marginTop: '1rem' }}>
+        <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap', justifyContent: 'center', marginTop: '1rem' }}>
           {Object.entries(statuses).map(([site, info]) => {
             const status = info.status || 'searching';
             const tooltip = status === 'error'
@@ -185,8 +188,8 @@ function App() {
       )}
 
       {!isSearching && results.length === 0 && (hasSearched || (!isQueryValid && query.trim().length > 0)) && (
-        <div style={{ textAlign: 'center', color: 'var(--text-secondary)', marginTop: '2rem' }}>
-          {!isQueryValid ? "Inserisci almeno 4 caratteri alfanumerici per avviare la ricerca." : `No results found for "${query}".`}
+        <div style={{ textAlign: 'center', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
+          {!isQueryValid ? "Inserisci almeno 4 caratteri alfanumerici per avviare la ricerca." : `No results found for "${lastSearchedQuery}".`}
         </div>
       )}
     </div>
