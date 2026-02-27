@@ -132,6 +132,11 @@ class BaseCrawler:
         Extract detailed metadata (codec, audio, source, hdr) using guessit.
         """
         import re
+        # Pre-process title: replace slashes in language-like tags with spaces to help guessit
+        # (e.g. Ita/Eng -> Ita Eng)
+        clean_title = re.sub(r'([a-zA-Z]{2,3})/([a-zA-Z]{2,3})', r'\1 \2', title)
+        clean_title = re.sub(r'/([a-zA-Z]{2,3})', r' \1', clean_title)
+
         metadata = {
             "codec": None,
             "audio": [],
@@ -141,7 +146,7 @@ class BaseCrawler:
         }
         try:
             import guessit
-            guess = guessit.guessit(title)
+            guess = guessit.guessit(clean_title)
             
             # 1. Video Codec Mapping
             vc = guess.get("video_codec")
@@ -167,7 +172,7 @@ class BaseCrawler:
                 else:
                     metadata["source"] = str(source)
                 
-            # 3. Audio Tracks (Codec + Channels)
+            # 3. Audio Tracks (Codec ONLY)
             AUDIO_MAP = {
                 "dolby digital": "AC3",
                 "dolby digital plus": "E-AC3",
@@ -177,48 +182,59 @@ class BaseCrawler:
             }
             
             ac_list = guess.get("audio_codec", [])
-            if isinstance(ac_list, str): ac_list = [ac_list]
-            
-            ch_list = guess.get("audio_channels", [])
-            if isinstance(ch_list, str): ch_list = [ch_list]
+            if not isinstance(ac_list, list): ac_list = [ac_list]
             
             audio_tracks = []
-            max_len = max(len(ac_list), len(ch_list))
-            for i in range(max_len):
-                codec = ac_list[i] if i < len(ac_list) else None
-                channels = ch_list[i] if i < len(ch_list) else None
-                
-                if not codec and not channels: continue
-                
-                parts = []
-                if codec:
-                    c_low = str(codec).lower()
-                    mapped = AUDIO_MAP.get(c_low)
-                    if not mapped:
-                        for k, v in AUDIO_MAP.items():
-                            if k in c_low:
-                                mapped = v
-                                break
-                    parts.append(mapped if mapped else str(codec))
-                if channels:
-                    parts.append(str(channels))
-                
-                audio_tracks.append(" ".join(parts))
+            for codec in ac_list:
+                if not codec: continue
+                c_low = str(codec).lower()
+                mapped = AUDIO_MAP.get(c_low)
+                if not mapped:
+                    for k, v in AUDIO_MAP.items():
+                        if k in c_low:
+                            mapped = v
+                            break
+                audio_tracks.append(mapped if mapped else str(codec))
                 
             if re.search(r'\bMD\b', title, re.I) or "mic dubbed" in str(guess.get("other", "")).lower():
                 audio_tracks.append("MD")
                 
             metadata["audio"] = list(dict.fromkeys(audio_tracks))
                 
-            # 4. Languages
+            # 4. Languages (Improved with regex fallback)
+            LANG_MAP = {
+                "ita": "it", "italian": "it",
+                "eng": "en", "english": "en",
+                "ing": "en",
+                "spa": "es", "spanish": "es",
+                "fra": "fr", "french": "fr",
+                "ger": "de", "german": "de"
+            }
+            
             langs = guess.get("language", [])
-            if isinstance(langs, str): langs = [langs]
-            metadata["languages"] = [str(l) for l in langs]
+            if not isinstance(langs, list): langs = [langs]
+            
+            found_langs = []
+            for l in langs:
+                if l: found_langs.append(str(l).lower())
+            
+            # Manual regex fallback for common tags like Ita/Eng/Spa
+            for key, val in LANG_MAP.items():
+                if re.search(r'\b' + key + r'\b', title, re.I):
+                    found_langs.append(val)
+            
+            final_langs = []
+            for l in found_langs:
+                mapped = LANG_MAP.get(l, l)
+                if len(mapped) <= 3: # Keep it short
+                     final_langs.append(mapped)
+                
+            metadata["languages"] = list(dict.fromkeys(final_langs))
             
             # 5. HDR cleanup and simplification (Unified "HDR" tag)
             is_hdr = False
             other_tags = guess.get("other", [])
-            if isinstance(other_tags, str): other_tags = [other_tags]
+            if not isinstance(other_tags, list): other_tags = [other_tags]
             for o in other_tags:
                 o_str = str(o).lower()
                 if any(x in o_str for x in ["hdr", "dolby vision", "dv"]):

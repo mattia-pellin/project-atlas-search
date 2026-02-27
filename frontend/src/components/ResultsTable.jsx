@@ -54,7 +54,7 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
         { id: 'title', label: 'Title', width: 'auto', sortable: true, filterable: false },
         { id: 'date', label: 'Date', width: '120px', sortable: true, filterable: false },
         { id: 'quality', label: 'Quality', width: '100px', sortable: true, filterable: true },
-        { id: 'metadata', label: 'Metadata', width: '250px', sortable: false, filterable: true },
+        { id: 'metadata', label: 'Metadata', width: '200px', sortable: false, filterable: true },
         { id: 'site', label: 'Site', width: '120px', sortable: true, filterable: true },
         { id: 'actions', label: 'Actions', width: '150px', sortable: false, filterable: false }
     ];
