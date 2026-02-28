@@ -13,8 +13,8 @@ class DLECrawler(BaseCrawler):
         if not self.username or not self.password:
             return False
             
-        # Get homepage for cookies
-        await self.session.get(self.base_url)
+        # Get homepage for cookies (pre-warm with CF bypass)
+        await self.fetch_html(self.base_url)
         
         login_data = {
             "login_name": self.username,
@@ -23,8 +23,8 @@ class DLECrawler(BaseCrawler):
             "login_not_save": "1"
         }
         login_url = f"{self.base_url.rstrip('/')}/index.php?do=login"
-        res = await self.session.post(login_url, data=login_data, headers={"Referer": self.base_url})
-        return self.username.lower().split('@')[0] in res.text.lower()
+        html = await self.post_html(login_url, data=login_data, headers={"Referer": self.base_url})
+        return self.username.lower().split('@')[0] in html.lower()
 
     async def search(self, query: str, limit: int = 50) -> List[Dict[str, Any]]:
         # Pre-warm session with CF cookies by fetching homepage through the bypass
@@ -49,11 +49,11 @@ class DLECrawler(BaseCrawler):
             "titleonly": "3"
         }
         search_url = f"{self.base_url.rstrip('/')}/index.php?do=search"
-        res = await self.session.post(search_url, data=search_data, headers={"Referer": self.base_url})
-        soup = BeautifulSoup(res.text, 'lxml')
+        html = await self.post_html(search_url, data=search_data, headers={"Referer": self.base_url})
+        soup = BeautifulSoup(html, 'lxml')
         
         results = []
-        articles = soup.select('article, div.item, div.short_story, div.news, a.sres-wrap, div.titlecontrol')
+        articles = soup.select('article, div.item, div.short_story, div.news, a.sres-wrap, div.titlecontrol, div.sh0, div.base')
         for article in articles:
             if len(results) >= limit:
                 break

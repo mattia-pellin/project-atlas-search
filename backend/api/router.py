@@ -26,6 +26,7 @@ async def search_stream(request: Request, q: str, db: AsyncSession = Depends(get
     dns_servers = settings.dns_servers if settings else "system"
     cache_enabled = settings.cache_enabled if settings else True
     cache_ttl_minutes = settings.cache_ttl_minutes if settings else 60
+    flaresolverr_url = settings.flaresolverr_url if settings else ""
     
     force_refresh = request.query_params.get("force_refresh", "false").lower() == "true"
     
@@ -109,7 +110,7 @@ async def search_stream(request: Request, q: str, db: AsyncSession = Depends(get
 
         # 2. Start dynamic crawling for missing sites
         queue = asyncio.Queue()
-        manager = CrawlerManager(query=q, limit=limit, credentials_map=credentials, dns_servers=dns_servers, only_sites=sites_to_crawl)
+        manager = CrawlerManager(query=q, limit=limit, credentials_map=credentials, dns_servers=dns_servers, only_sites=sites_to_crawl, flaresolverr_url=flaresolverr_url)
         
         task = asyncio.create_task(manager.execute_parallel(queue))
         
@@ -173,12 +174,13 @@ async def fetch_links(req: FetchLinksRequest, db: AsyncSession = Depends(get_db)
         if cred and cred.password:
             kw["password"] = cred.password
             
-        # Fetch global DNS settings
+        # Fetch global DNS and FlareSolverr settings
         settings_res = await db.execute(select(AppSettings).limit(1))
         settings = settings_res.scalars().first()
         dns_servers = settings.dns_servers if settings else "system"
+        flaresolverr_url = settings.flaresolverr_url if settings else ""
 
-        res = await get_links_for_url(site_key, req.url, custom_url=cred.custom_url if cred else None, dns_servers=dns_servers, **kw)
+        res = await get_links_for_url(site_key, req.url, custom_url=cred.custom_url if cred else None, dns_servers=dns_servers, flaresolverr_url=flaresolverr_url, **kw)
         return res
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -196,6 +198,7 @@ class SettingsUpdate(BaseModel):
     dns_servers: str = "system"
     cache_enabled: bool = True
     cache_ttl_minutes: int = 60
+    flaresolverr_url: str = ""
     credentials: List[CredentialItem]
 
 @router.get("/settings")
@@ -207,6 +210,7 @@ async def get_settings(db: AsyncSession = Depends(get_db)):
     dns_servers = settings.dns_servers if settings else "system"
     cache_enabled = settings.cache_enabled if settings else True
     cache_ttl_minutes = settings.cache_ttl_minutes if settings else 60
+    flaresolverr_url = settings.flaresolverr_url if settings else ""
     
     # Get credentials from DB
     result = await db.execute(select(SiteCredential))
@@ -242,6 +246,7 @@ async def get_settings(db: AsyncSession = Depends(get_db)):
         "dns_servers": dns_servers, 
         "cache_enabled": cache_enabled,
         "cache_ttl_minutes": cache_ttl_minutes,
+        "flaresolverr_url": flaresolverr_url,
         "credentials": creds_list
     }
 
@@ -255,7 +260,8 @@ async def update_settings(data: SettingsUpdate, db: AsyncSession = Depends(get_d
             max_results=data.max_results, 
             dns_servers=data.dns_servers,
             cache_enabled=data.cache_enabled,
-            cache_ttl_minutes=data.cache_ttl_minutes
+            cache_ttl_minutes=data.cache_ttl_minutes,
+            flaresolverr_url=data.flaresolverr_url
         )
         db.add(settings)
     else:
@@ -263,6 +269,7 @@ async def update_settings(data: SettingsUpdate, db: AsyncSession = Depends(get_d
         settings.dns_servers = data.dns_servers
         settings.cache_enabled = data.cache_enabled
         settings.cache_ttl_minutes = data.cache_ttl_minutes
+        settings.flaresolverr_url = data.flaresolverr_url
         
     # Update credentials
     for cred in data.credentials:

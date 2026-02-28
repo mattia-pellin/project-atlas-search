@@ -6,19 +6,19 @@ from curl_cffi import requests
 logger = logging.getLogger(__name__)
 
 USER_AGENTS = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
 ]
 
 class BaseCrawler:
     name: str = "base"
     base_url: str = ""
 
-    def __init__(self, username: Optional[str] = None, password: Optional[str] = None):
+    def __init__(self, username: Optional[str] = None, password: Optional[str] = None, flaresolverr_url: str = ""):
         self.username = username
         self.password = password
+        self.flaresolverr_url = flaresolverr_url
         self.session = None
 
     async def init_session(self):
@@ -44,7 +44,7 @@ class BaseCrawler:
                     logger.warning(f"DNS resolution failed for {self.base_url}: {e}")
             
             kwargs = {
-                "impersonate": "chrome120",
+                "impersonate": "chrome142",
                 "headers": {"User-Agent": random.choice(USER_AGENTS)}
             }
             if resolve_list:
@@ -71,7 +71,16 @@ class BaseCrawler:
           3. Retry the request with the cleared cookies
         """
         from backend.crawlers.cf_bypass import fetch_with_cf_bypass
-        return await fetch_with_cf_bypass(self.session, url)
+        flaresolverr_url = getattr(self, "flaresolverr_url", "")
+        return await fetch_with_cf_bypass(self.session, url, flaresolverr_url)
+
+    async def post_html(self, url: str, data: dict, **kwargs) -> str:
+        """
+        POST data to a URL, automatically handling Cloudflare protection.
+        """
+        from backend.crawlers.cf_bypass import fetch_with_cf_bypass
+        flaresolverr_url = getattr(self, "flaresolverr_url", "")
+        return await fetch_with_cf_bypass(self.session, url, flaresolverr_url, method="POST", data=data, **kwargs)
 
     async def search(self, query: str, limit: int = 50) -> list[Dict[str, Any]]:
         """

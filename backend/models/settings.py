@@ -21,3 +21,4 @@ class AppSettings(Base):
     dns_servers = Column(String, default="system")
     cache_enabled = Column(Boolean, default=True)
     cache_ttl_minutes = Column(Integer, default=60)
+    flaresolverr_url = Column(String, default="")

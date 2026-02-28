@@ -7,20 +7,23 @@ from backend.crawlers.impl.lostplanet import LostPlanetCrawler
 from backend.crawlers.impl.laforestaincantata import LaForestaIncantataCrawler
 from backend.crawlers.impl.hd4me import HD4MeCrawler
 from backend.crawlers.impl.torrent_1337x import Torrent1337xCrawler
+from backend.crawlers.impl.ddlworld import DDLWorldCrawler
 
 REGISTERED_CRAWLERS: Dict[str, Type[BaseCrawler]] = {
     HDItaliaBitsCrawler.name: HDItaliaBitsCrawler,
     LostPlanetCrawler.name: LostPlanetCrawler,
     LaForestaIncantataCrawler.name: LaForestaIncantataCrawler,
     HD4MeCrawler.name: HD4MeCrawler,
-    Torrent1337xCrawler.name: Torrent1337xCrawler
+    Torrent1337xCrawler.name: Torrent1337xCrawler,
+    DDLWorldCrawler.name: DDLWorldCrawler
 }
 
 class CrawlerManager:
-    def __init__(self, query: str, limit: int = 50, credentials_map: Dict[str, Any] = None, dns_servers: str = "system", only_sites: List[str] = None):
+    def __init__(self, query: str, limit: int = 50, credentials_map: Dict[str, Any] = None, dns_servers: str = "system", only_sites: List[str] = None, flaresolverr_url: str = ""):
         self.query = query
         self.limit = limit
         self.dns_servers = dns_servers
+        self.flaresolverr_url = flaresolverr_url
         self.crawlers = {}
         for name, cls in REGISTERED_CRAWLERS.items():
             # If only_sites is provided, only include sites in that list
@@ -38,6 +41,7 @@ class CrawlerManager:
             if creds.get("custom_url"):
                 crawler.base_url = creds.get("custom_url").rstrip("/")
             crawler.dns_servers = self.dns_servers
+            crawler.flaresolverr_url = self.flaresolverr_url
             self.crawlers[name] = crawler
 
     async def _run_crawler(self, name: str, crawler: BaseCrawler, yield_queue: asyncio.Queue):
@@ -97,7 +101,7 @@ class CrawlerManager:
         await asyncio.gather(*tasks, return_exceptions=True)
         await yield_queue.put({"type": "done"})
 
-async def get_links_for_url(site: str, url: str, dns_servers: str = "system", **kwargs) -> Dict[str, Any]:
+async def get_links_for_url(site: str, url: str, dns_servers: str = "system", flaresolverr_url: str = "", **kwargs) -> Dict[str, Any]:
     if site not in REGISTERED_CRAWLERS:
         raise ValueError(f"Unknown site: {site}")
         
@@ -106,6 +110,7 @@ async def get_links_for_url(site: str, url: str, dns_servers: str = "system", **
     if custom_url:
         crawler.base_url = custom_url.rstrip("/")
     crawler.dns_servers = dns_servers
+    crawler.flaresolverr_url = flaresolverr_url
     await crawler.init_session()
     try:
         await crawler.login()

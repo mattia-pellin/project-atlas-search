@@ -10,17 +10,11 @@ RUN npm run build
 FROM python:3.13-slim
 WORKDIR /app
 
-# Install Google Chrome + Xvfb (virtual display for headed Chrome in Docker)
-# Headed Chrome bypasses Cloudflare much better than headless mode
+# Clean python slim image
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    wget ca-certificates fonts-liberation xvfb && \
-    wget -q -O /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
-    apt-get install -y /tmp/chrome.deb && \
-    rm /tmp/chrome.deb && \
-    rm -f /usr/bin/wget && \
-    rm -rf /var/lib/apt/lists/* && \
-    google-chrome-stable --version
+    wget ca-certificates fonts-liberation && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy backend requirements and install them
 COPY backend/requirements.txt .

@@ -7,13 +7,23 @@ from backend.core.database import AsyncSessionLocal
 from sqlalchemy import select
 from backend.models.settings import SiteCredential
 
-QUERIES = ["Matrix", "Now You See Me"]
-EXPECTED_SITES = ["1337x", "HD4ME", "HDItalia", "Lost Planet"]
+QUERIES = ["Matrix", "Batman"]
+EXPECTED_SITES = ["1337x", "HD4ME", "HDItalia", "Lost Planet", "DDLWorld"]
 
 @pytest_asyncio.fixture(autouse=True, scope="module")
 async def setup_database():
     """Manually trigger the FastAPI lifespan to initialize and seed the DB."""
     async with lifespan(app):
+        from backend.models.settings import AppSettings
+        async with AsyncSessionLocal() as session:
+            # Upsert AppSettings
+            result = await session.execute(select(AppSettings).limit(1))
+            settings = result.scalars().first()
+            if not settings:
+                session.add(AppSettings(flaresolverr_url="http://localhost:8191"))
+            else:
+                settings.flaresolverr_url = "http://localhost:8191"
+            await session.commit()
         yield
 
 @pytest.mark.asyncio
