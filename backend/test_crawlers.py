@@ -1,5 +1,6 @@
 import pytest
 import json
+import os
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 from backend.app.main import app, lifespan
@@ -19,10 +20,12 @@ async def setup_database():
             # Upsert AppSettings
             result = await session.execute(select(AppSettings).limit(1))
             settings = result.scalars().first()
+            # Use env FLARESOLVERR_URL as default for tests
+            default_fs = os.environ.get("FLARESOLVERR_URL", "http://localhost:8191")
             if not settings:
-                session.add(AppSettings(flaresolverr_url="http://localhost:8191"))
+                session.add(AppSettings(flaresolverr_url=default_fs))
             else:
-                settings.flaresolverr_url = "http://localhost:8191"
+                settings.flaresolverr_url = default_fs
             await session.commit()
         yield
 
@@ -83,3 +86,31 @@ async def test_search_all_crawlers(query):
                 # 'warning' (IP ban) is allowed to have 0 results for this CI check
             
             assert not failed_sites, f"Query '{query}' failed for crawlers: {failed_sites}. Statuses: {site_statuses}"
+
+@pytest.mark.asyncio
+async def test_ddlworld_direct_login():
+    """
+    Test DDLWorld login logic specifically.
+    """
+    from backend.crawlers.impl.ddlworld import DDLWorldCrawler
+    from backend.models.settings import SiteCredential
+    import os
+
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(SiteCredential).where(SiteCredential.site_key == "DDLWorld"))
+        cred = result.scalars().first()
+        
+    if not cred or not cred.username or not cred.password:
+        pytest.skip("DDLWorld credentials not found in DB")
+
+    fs_url = os.environ.get("FLARESOLVERR_URL", "http://localhost:8191")
+    crawler = DDLWorldCrawler(username=cred.username, password=cred.password, flaresolverr_url=fs_url)
+    await crawler.init_session()
+    try:
+        success = await crawler.login()
+        # If CF is actually working, this should be True. 
+        # If CF fails but returns a response, my new login logic will log the error.
+        print(f"DEBUG: DDLWorld login result: {success}")
+        assert success, "DDLWorld login failed (potential Cloudflare blockage or invalid credentials)"
+    finally:
+        await crawler.close()

@@ -142,42 +142,52 @@ function App() {
         </form>
 
         <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap', justifyContent: 'center', marginTop: '0.8rem' }}>
-          {Object.entries(statuses).map(([site, info]) => {
-            const status = info.status || 'searching';
-            const tooltip = status === 'error'
-              ? `Error: ${info.error || 'Unknown'}`
-              : status === 'warning'
-                ? `Warning: ${info.error || 'Connection Refused'}`
-                : status === 'completed'
-                  ? `Completed: ${info.count ?? 0} results`
-                  : 'Searching...';
-            return (
-              <div key={site}
-                title={tooltip}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '0.5rem',
-                  background: 'rgba(255,255,255,0.05)',
-                  border: '1px solid transparent',
-                  padding: '0.4rem 0.8rem', borderRadius: '20px', fontSize: '0.8rem',
-                  cursor: 'help',
-                  transition: 'all 0.2s'
-                }}>
-                <div style={{
-                  width: '8px', height: '8px', borderRadius: '50%',
-                  background: statusColors[status],
-                  boxShadow: status === 'searching' ? `0 0 8px ${statusColors[status]}` : 'none',
-                  animation: status === 'searching' ? 'pulse 2s infinite' : 'none'
-                }}></div>
-                <span style={{
-                  textTransform: 'capitalize',
-                  color: 'var(--text-secondary)',
-                  fontWeight: 'normal'
-                }}>
-                  {site}
-                </span>
-              </div>
-            );
-          })}
+          {Object.entries(statuses)
+            .sort(([siteA], [siteB]) => {
+              const order = ['HDItalia', 'LFI', 'Lost Planet', 'DDLWorld', 'HD4ME', '1337x'];
+              const idxA = order.indexOf(siteA);
+              const idxB = order.indexOf(siteB);
+              if (idxA === -1 && idxB === -1) return siteA.localeCompare(siteB);
+              if (idxA === -1) return 1;
+              if (idxB === -1) return -1;
+              return idxA - idxB;
+            })
+            .map(([site, info]) => {
+              const status = info.status || 'searching';
+              const tooltip = status === 'error'
+                ? `Error: ${info.error || 'Unknown'}`
+                : status === 'warning'
+                  ? `Warning: ${info.error || 'Connection Refused'}`
+                  : status === 'completed'
+                    ? `Completed: ${info.count ?? 0} results`
+                    : 'Searching...';
+              return (
+                <div key={site}
+                  title={tooltip}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '0.5rem',
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid transparent',
+                    padding: '0.4rem 0.8rem', borderRadius: '20px', fontSize: '0.8rem',
+                    cursor: 'help',
+                    transition: 'all 0.2s'
+                  }}>
+                  <div style={{
+                    width: '8px', height: '8px', borderRadius: '50%',
+                    background: statusColors[status],
+                    boxShadow: status === 'searching' ? `0 0 8px ${statusColors[status]}` : 'none',
+                    animation: status === 'searching' ? 'pulse 2s infinite' : 'none'
+                  }}></div>
+                  <span style={{
+                    textTransform: 'capitalize',
+                    color: 'var(--text-secondary)',
+                    fontWeight: 'normal'
+                  }}>
+                    {site}
+                  </span>
+                </div>
+              );
+            })}
         </div>
       </div>
 

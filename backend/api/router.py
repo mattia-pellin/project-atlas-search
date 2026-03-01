@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 from fastapi import APIRouter, Request, HTTPException, Depends
 from sse_starlette.sse import EventSourceResponse
 from backend.crawlers.manager import CrawlerManager, get_links_for_url
@@ -26,7 +27,10 @@ async def search_stream(request: Request, q: str, db: AsyncSession = Depends(get
     dns_servers = settings.dns_servers if settings else "system"
     cache_enabled = settings.cache_enabled if settings else True
     cache_ttl_minutes = settings.cache_ttl_minutes if settings else 60
-    flaresolverr_url = settings.flaresolverr_url if settings else ""
+    
+    # Use env var as fallback if DB value is empty
+    env_flaresolverr = os.environ.get("FLARESOLVERR_URL", "")
+    flaresolverr_url = settings.flaresolverr_url if settings and settings.flaresolverr_url else env_flaresolverr
     
     force_refresh = request.query_params.get("force_refresh", "false").lower() == "true"
     
@@ -178,7 +182,8 @@ async def fetch_links(req: FetchLinksRequest, db: AsyncSession = Depends(get_db)
         settings_res = await db.execute(select(AppSettings).limit(1))
         settings = settings_res.scalars().first()
         dns_servers = settings.dns_servers if settings else "system"
-        flaresolverr_url = settings.flaresolverr_url if settings else ""
+        env_flaresolverr = os.environ.get("FLARESOLVERR_URL", "")
+        flaresolverr_url = settings.flaresolverr_url if settings and settings.flaresolverr_url else env_flaresolverr
 
         res = await get_links_for_url(site_key, req.url, custom_url=cred.custom_url if cred else None, dns_servers=dns_servers, flaresolverr_url=flaresolverr_url, **kw)
         return res
@@ -210,7 +215,8 @@ async def get_settings(db: AsyncSession = Depends(get_db)):
     dns_servers = settings.dns_servers if settings else "system"
     cache_enabled = settings.cache_enabled if settings else True
     cache_ttl_minutes = settings.cache_ttl_minutes if settings else 60
-    flaresolverr_url = settings.flaresolverr_url if settings else ""
+    env_flaresolverr = os.environ.get("FLARESOLVERR_URL", "")
+    flaresolverr_url = settings.flaresolverr_url if settings and settings.flaresolverr_url else env_flaresolverr
     
     # Get credentials from DB
     result = await db.execute(select(SiteCredential))

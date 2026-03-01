@@ -29,3 +29,6 @@ atlas_search.db
 venv/
 __pycache__/
 .pytest_cache/
+data/
+ddl_login.html
+docker_test.py

@@ -1,13 +1,15 @@
 """
 Cloudflare bypass helper using FlareSolverr.
 """
-import asyncio
 import logging
 from typing import Optional, Tuple, Dict
-from urllib.parse import urlparse
 import aiohttp
 
 logger = logging.getLogger(__name__)
+
+class CloudflareBypassError(Exception):
+    """Custom exception when Cloudflare bypass fails or FlareSolverr is missing."""
+    pass
 
 async def fetch_with_cf_bypass(session, url: str, flaresolverr_url: str = "", method: str = "GET", data: dict = None, **kwargs) -> str:
     """
@@ -38,13 +40,36 @@ async def fetch_with_cf_bypass(session, url: str, flaresolverr_url: str = "", me
     
     if not flaresolverr_url:
         logger.warning(f"[CF] Cannot bypass CF on {url} because FlareSolverr URL is not configured.")
-        return text
+        raise CloudflareBypassError("Blocked by CloudFlare, verify FlareSolverr configuration")
 
     flaresolverr_api = f"{flaresolverr_url.rstrip('/')}/v1"
+    
+    # Merge session headers with request headers
+    merged_headers = dict(session.headers)
+    if kwargs.get("headers"):
+        merged_headers.update(kwargs["headers"])
+        
+    # Extract cookies from session for FlareSolverr
+    session_cookies = []
+    from urllib.parse import urlparse
+    parsed_url = urlparse(url)
+    current_domain = parsed_url.hostname
+    
+    # In curl_cffi, session.cookies is a dict-like object
+    for name, value in session.cookies.items():
+        session_cookies.append({
+            "name": name,
+            "value": value,
+            "domain": current_domain,
+            "path": "/"
+        })
+
     payload = {
         "cmd": "request.post" if method.upper() == "POST" else "request.get",
         "url": url,
-        "maxTimeout": 60000
+        "maxTimeout": 60000,
+        "cookies": session_cookies,
+        "headers": merged_headers
     }
     if method.upper() == "POST" and data:
         from urllib.parse import urlencode
@@ -55,21 +80,20 @@ async def fetch_with_cf_bypass(session, url: str, flaresolverr_url: str = "", me
             async with aio_session.post(flaresolverr_api, json=payload, timeout=70) as resp:
                 if resp.status != 200:
                     logger.warning(f"[CF] FlareSolverr returned status {resp.status} for {url}")
-                    return text
+                    raise CloudflareBypassError("Blocked by CloudFlare, verify FlareSolverr configuration")
                     
-                data = await resp.json()
-                if data.get("status") == "ok" and "solution" in data:
+                resp_json = await resp.json()
+                if resp_json.get("status") == "ok" and "solution" in resp_json:
                     logger.info(f"[CF] Successfully bypassed Cloudflare for {url} via FlareSolverr")
-                    solution = data["solution"]
+                    solution = resp_json["solution"]
                     
-                    # Update curl_cffi session with new cookies & UserAgent
+                    # Update session with new UA and cookies
                     user_agent = solution.get("userAgent", "")
                     if user_agent:
                         session.headers["User-Agent"] = user_agent
                         
                     cookies = solution.get("cookies", [])
-                    from urllib.parse import urlparse
-                    domain = urlparse(url).hostname
+                    domain = parsed_url.hostname
                     
                     for c in cookies:
                         c_domain = c.get("domain", domain)
@@ -77,8 +101,10 @@ async def fetch_with_cf_bypass(session, url: str, flaresolverr_url: str = "", me
                         
                     return solution.get("response", "")
                 else:
-                    logger.warning(f"[CF] FlareSolverr failed for {url}: {data}")
-                    return text
+                    logger.warning(f"[CF] FlareSolverr failed for {url}: {resp_json}")
+                    raise CloudflareBypassError("Blocked by CloudFlare, verify FlareSolverr configuration")
     except Exception as e:
         logger.error(f"[CF] FlareSolverr request error for {url}: {e}")
-        return text
+        if isinstance(e, CloudflareBypassError):
+            raise e
+        raise CloudflareBypassError("Blocked by CloudFlare, verify FlareSolverr configuration")

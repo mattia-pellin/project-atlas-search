@@ -1,79 +1,109 @@
-from backend.crawlers.impl.dle_base import DLECrawler
 import re
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, List
 from bs4 import BeautifulSoup
+from .dle_base import DLECrawler
 
 logger = logging.getLogger(__name__)
 
 class DDLWorldCrawler(DLECrawler):
-    name = "DDLWorld"
-    base_url = "https://www.ddl-world.space"
+    name: str = "DDLWorld"
+
+    def __init__(self, username: str = None, password: str = None, flaresolverr_url: str = ""):
+        super().__init__(username, password, flaresolverr_url)
+        self.base_url = "https://www.ddl-world.space"
+
+    async def login(self) -> bool:
+        """DDLWorld specific login logic."""
+        if not self.username or not self.password:
+            logger.error(f"[{self.name}] Missing credentials for login")
+            return False
+
+        # First visit the home page to get a session/cookies
+        await self.fetch_html(self.base_url)
+        
+        login_data = {
+            "login": "submit",
+            "login_name": self.username,
+            "login_password": self.password,
+            "login_not_save": "0",  # 0 for persistent login (gets dle_user_id/dle_password cookies)
+        }
+        # DDLWorld needs the login payload sent to the homepage
+        html = await self.post_html(self.base_url, data=login_data, headers={"Referer": self.base_url})
+        
+        # Look for the welcome message: "Benvenuto [username]!"
+        welcome_pattern = f"benvenuto {self.username.lower()}"
+        if welcome_pattern in html.lower():
+            return True
+            
+        # Fallback to checking for the logout link
+        if 'action=logout' in html or 'do=logout' in html or 'Esci</a>' in html:
+            return True
+            
+        return False
 
     async def fetch_links(self, url: str) -> Dict[str, Any]:
-        """
-        DDLWorld uses the thanks.php mechanism.
-        Links appear after the 'thanks' click (grazie.gif).
-        """
-        # Extract post ID from URL
-        # DDLWorld URLs usually end in .html or use ?newsid=
-        post_id = url.rstrip('/').split('/')[-1].split('-')[0]
-        if 'newsid=' in url:
-            post_id_match = re.search(r'newsid=(\d+)', url)
-            if post_id_match:
-                post_id = post_id_match.group(1)
-
-        # 1. Trigger thanks (pinguino/grazie.gif equivalent)
-        thanks_url = f"{self.base_url.rstrip('/')}/engine/ajax/thanks.php"
+        """Fetch links by triggering the 'thanks' AJAX call and parsing the combined content."""
+        # Fetch the page first
+        html = await self.fetch_html(url)
+        
+        # Extract post_id from url
+        # Ex: https://www.ddl-world.space/news/224877-name.html -> 224877
         try:
-            await self.session.post(
+            post_id = url.rstrip('/').split('/')[-1].split('-')[0]
+        except Exception:
+            logger.error(f"Could not extract post_id from {url}")
+            return {"links": [], "password": None}
+        
+        # AJAX call to thanks.php to reveal hidden content
+        thanks_url = f"{self.base_url.rstrip('/')}/engine/ajax/thanks.php"
+        thanks_html = ""
+        try:
+            thanks_html = await self.post_html(
                 thanks_url,
-                data={"thanks": "tanksForNews", "news_id": post_id},
+                data={"thanks": "thanksForNews", "news_id": post_id},
                 headers={"Referer": url, "X-Requested-With": "XMLHttpRequest"},
             )
         except Exception as e:
-            logger.warning(f"[{self.name}] Thanks call failed for {post_id}: {e}")
+            logger.error(f"Error calling thanks.php for {url}: {e}")
 
-        # 2. Re-fetch the page
-        html = await self.fetch_html(url)
-        soup = BeautifulSoup(html, 'lxml')
-
-        links: list[str] = []
-        seen: set[str] = set()
-
-        # 3. Extract links from the page
-        # DDLWorld often puts links in spoiler or just in the content
-        # We can use the base fetch_links logic but we need to ensure we re-scan the HTML
-        # after the thanks trigger.
+        # Combine responses to ensure we capture all revealed links
+        combined_html = html + "\n" + thanks_html
+        soup = BeautifulSoup(combined_html, "lxml")
         
-        # Base DLE _collect_urls_from_element equivalent logic
-        root = soup.select_one('.full-text') or soup.select_one('#dle-content') or soup
+        links = []
+        seen = set()
         
-        # Look for <a> tags
-        for a in root.find_all('a', href=True):
+        # Search for <a> tags
+        for a in soup.find_all('a', href=True):
             href = a['href']
+            # Filter out referral/registration links
+            if any(x in href for x in ["registration", "ref/", "referral"]):
+                continue
+                
             if self._is_download_link(href) and href not in seen:
                 links.append(href)
                 seen.add(href)
         
-        # Look for raw text URLs
-        body_text = root.get_text(" ", strip=True)
+        # Search for raw text URLs (some links are revealed in spoilers as raw text)
+        body_text = soup.get_text(" ", strip=True)
         for m in re.finditer(r'https?://[^\s<>"\']+', body_text):
             href = m.group(0).rstrip('.,;)')
+            if any(x in href for x in ["registration", "ref/", "referral"]):
+                continue
+                
             if self._is_download_link(href) and href not in seen:
                 links.append(href)
                 seen.add(href)
 
-        # 4. Password extraction (Look for "psw:")
+        # Extract password - improved regex with word boundaries and lookbehind to avoid MediaInfo matches,
+        # and stopping at the first space or HTML tag to avoid capturing trailing text.
         password = None
-        pwd_match = re.search(r'(?i)psw\s*[:\-]\s*([^\s<]+)', soup.get_text())
+        # Pattern: (?i)(?<![\w-])(?:pwd|psw|password|pass)\b\s*[:\-]\s*([^\s<]+)
+        # matches standalone pwd/psw/password/pass followed by : or - and the value
+        pwd_match = re.search(r'(?i)(?<![\w-])(?:pwd|psw|password|pass)\b\s*[:\-]\s*([^\s<]+)', body_text)
         if pwd_match:
-            password = pwd_match.group(1).strip()
-        else:
-            # Fallback to base DLE password patterns if psw: not found
-            pwd_match = re.search(r'(?i)password\s*[:\-]\s*([^\s<]+)', soup.get_text())
-            if pwd_match:
-                password = pwd_match.group(1).strip()
+            password = pwd_match.group(1).strip().rstrip('.,;)')
 
-        logger.info(f"[{self.name}] Extracted {len(links)} links for {url}")
+        logger.info(f"[{self.name}] Extracted {len(links)} links and password: {password}")
         return {"links": links, "password": password}

@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from backend.api.router import router as api_router
-from backend.core.database import engine, AsyncSessionLocal
+from backend.core.database import engine, AsyncSessionLocal, init_db
 from backend.models.settings import Base, SiteCredential
 from sqlalchemy import select
 from contextlib import asynccontextmanager
@@ -12,8 +12,7 @@ import json
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+        await init_db()
 
         # Look for credentials.json: first in DATABASE_DIR (/data), then project root
         data_dir = os.environ.get("DATABASE_DIR", os.path.dirname(os.path.dirname(os.path.dirname(__file__))))

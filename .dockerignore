@@ -12,3 +12,6 @@ atlas_search.db*
 *.log
 tests/
 .pytest_cache/
+data/
+ddl_login.html
+docker_test.py

@@ -1,7 +1,10 @@
 import re
+import logging
 from bs4 import BeautifulSoup
 from typing import Dict, Any, List
 from backend.crawlers.base import BaseCrawler
+
+logger = logging.getLogger(__name__)
 
 class DLECrawler(BaseCrawler):
     """
@@ -24,7 +27,28 @@ class DLECrawler(BaseCrawler):
         }
         login_url = f"{self.base_url.rstrip('/')}/index.php?do=login"
         html = await self.post_html(login_url, data=login_data, headers={"Referer": self.base_url})
-        return self.username.lower().split('@')[0] in html.lower()
+        
+        # 1. Success by username match (common in DLE profile links)
+        if self.username.lower().split('@')[0] in html.lower():
+            return True
+            
+        # 2. Success by checking for a logout link or "do=logout"
+        if "do=logout" in html.lower() or "logout" in html.lower() or "esci" in html.lower():
+            return True
+            
+        # 3. Success by checking if a common login error message is MISSING
+        # (Be careful here, only use if other checks fail and we are sure)
+        
+        # If all fail, log a snippet for debugging
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(html, 'lxml')
+        error_msg = soup.select_one('.berrors, .error, .alert-error')
+        if error_msg:
+            logger.warning(f"[{self.name}] Login failed with error: {error_msg.get_text(strip=True)}")
+        else:
+            logger.warning(f"[{self.name}] Login failed. Response snippet: {html[:200]}...")
+            
+        return False
 
     async def search(self, query: str, limit: int = 50) -> List[Dict[str, Any]]:
         # Pre-warm session with CF cookies by fetching homepage through the bypass
@@ -282,11 +306,12 @@ class DLECrawler(BaseCrawler):
 
         # 4. Password
         password = None
-        # Improved regex to capture text after "password:" until a new line or HTML tag,
-        # allowing for internal spaces (e.g., "iN SEGUiTO...") but stripping leading/trailing whitespace.
-        pwd_match = re.search(r'(?i)password\s*[:\-]\s*([^<\n\r]+)', soup.get_text())
+        # Improved regex with word boundaries and lookbehind to avoid MediaInfo matches,
+        # and stopping at the first space or HTML tag to avoid capturing trailing text.
+        # Use a space separator in get_text() to prevent words from melding together across tags.
+        pwd_match = re.search(r'(?i)(?<![\w-])(?:pwd|psw|password|pass)\b\s*[:\-]\s*([^\s<]+)', soup.get_text(" "))
         if pwd_match:
-            password = pwd_match.group(1).strip()
+            password = pwd_match.group(1).strip().rstrip('.,;)')
 
         logger.info(f"[{self.name}] Extracted {len(links)} links for {url}")
         return {"links": links, "password": password}

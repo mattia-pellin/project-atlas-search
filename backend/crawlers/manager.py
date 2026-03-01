@@ -8,14 +8,15 @@ from backend.crawlers.impl.laforestaincantata import LaForestaIncantataCrawler
 from backend.crawlers.impl.hd4me import HD4MeCrawler
 from backend.crawlers.impl.torrent_1337x import Torrent1337xCrawler
 from backend.crawlers.impl.ddlworld import DDLWorldCrawler
+from backend.crawlers.cf_bypass import CloudflareBypassError
 
 REGISTERED_CRAWLERS: Dict[str, Type[BaseCrawler]] = {
     HDItaliaBitsCrawler.name: HDItaliaBitsCrawler,
-    LostPlanetCrawler.name: LostPlanetCrawler,
     LaForestaIncantataCrawler.name: LaForestaIncantataCrawler,
+    LostPlanetCrawler.name: LostPlanetCrawler,
+    DDLWorldCrawler.name: DDLWorldCrawler,
     HD4MeCrawler.name: HD4MeCrawler,
-    Torrent1337xCrawler.name: Torrent1337xCrawler,
-    DDLWorldCrawler.name: DDLWorldCrawler
+    Torrent1337xCrawler.name: Torrent1337xCrawler
 }
 
 class CrawlerManager:
@@ -83,6 +84,8 @@ class CrawlerManager:
             # Send results to the queue
             await yield_queue.put({"site": current_name, "type": "results", "data": results})
             await yield_queue.put(SearchStatus(site=current_name, status="completed", count=len(results)))
+        except CloudflareBypassError as cf_e:
+            await yield_queue.put(SearchStatus(site=current_name, status="error", error_message=str(cf_e)))
         except Exception as e:
             err_msg = str(e)
             if "login" in err_msg.lower() or "credentials" in err_msg.lower():

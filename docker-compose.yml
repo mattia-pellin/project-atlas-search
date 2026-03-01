@@ -6,7 +6,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./data:/data
+      - ./atlas_search.db:/data/atlas_search.db
       - ./credentials.json:/data/credentials.json
     environment:
       - FLARESOLVERR_URL=http://flaresolverr:8191
