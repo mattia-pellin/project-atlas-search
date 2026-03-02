@@ -1,4 +1,4 @@
-const API_BASE = '/api';
+export const API_BASE = '/api';
 
 export const fetchSettings = async () => {
     const res = await fetch(`${API_BASE}/settings`);
@@ -55,38 +55,3 @@ export const sendToJDownloader = async (links, password, packageName) => {
     if (!res.ok) throw new Error(data.detail || "Failed to send to JDownloader");
     return data;
 };
-
-// SSE Connection manager
-export class SearchStream {
-    constructor(query, limit, onResults, onStatus, onDone, onError) {
-        this.url = `${API_BASE}/search/stream?q=${encodeURIComponent(query)}&limit=${limit}`;
-        this.es = new EventSource(this.url);
-
-        this.es.addEventListener('results', (e) => {
-            const data = JSON.parse(e.data);
-            onResults(data.data);
-        });
-
-        this.es.addEventListener('status', (e) => {
-            const data = JSON.parse(e.data);
-            onStatus(data);
-        });
-
-        this.es.addEventListener('done', () => {
-            onDone();
-            this.close();
-        });
-
-        this.es.onerror = (e) => {
-            console.error("SSE Error:", e);
-            onError(e);
-            this.close();
-        };
-    }
-
-    close() {
-        if (this.es) {
-            this.es.close();
-        }
-    }
-}

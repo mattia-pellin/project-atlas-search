@@ -87,12 +87,8 @@ class HD4MeCrawler(BaseCrawler):
         links = []
         password = None
         
-        # Find password - improved regex with word boundaries and lookbehind to avoid MediaInfo matches,
-        # and stopping at the first space or HTML tag to avoid capturing trailing text.
-        # Use a space separator in get_text() to prevent words from melding together across tags.
-        pwd_match = re.search(r'(?i)(?<![\w-])(?:pwd|psw|password|pass)\b\s*[:\-]\s*([^\s<]+)', soup.get_text(" "))
-        if pwd_match:
-            password = pwd_match.group(1).strip().rstrip('.,;)')
+        # Extract any ZIP/RAR password using the shared helper from BaseCrawler
+        password = self.extract_password(soup.get_text(" "))
             
         # Find download button
         shrink_links = []

@@ -36,9 +36,6 @@ async def search_stream(request: Request, q: str, db: AsyncSession = Depends(get
     dns_servers = settings.dns_servers if settings else "system"
     cache_enabled = settings.cache_enabled if settings else True
     cache_ttl_minutes = settings.cache_ttl_minutes if settings else 60
-    
-    cache_ttl_minutes = settings.cache_ttl_minutes if settings else 60
-    
     flaresolverr_url = get_flaresolverr_url(settings)
     
     force_refresh = request.query_params.get("force_refresh", "false").lower() == "true"
@@ -87,26 +84,25 @@ async def search_stream(request: Request, q: str, db: AsyncSession = Depends(get
         sites_to_crawl = active_sites
 
     async def event_generator():
-        # 1. Yield all cached results immediately
+        # Import stateless utility helpers from BaseCrawler (both are @staticmethod).
         from backend.crawlers.base import BaseCrawler
-        crawler_tool = BaseCrawler()
-        
-        # 0. Validate query first
-        if not crawler_tool.validate_query(q):
+
+        # 0. Validate query before doing any work
+        if not BaseCrawler.validate_query(q):
             yield {"event": "status", "data": json.dumps({
-                "site": "System", 
-                "status": "error", 
+                "site": "System",
+                "status": "error",
                 "error_message": "Ricerca troppo generica o nulla. Inserisci termini più specifici (es. escludendo articoli e preposizioni)."
             })}
             yield {"event": "done", "data": "{}"}
             return
 
         for site, results in cached_results_by_site.items():
-            # Migrate old cache entries to include metadata
+            # Migrate old cache entries that are missing the metadata field
             cache_updated = False
             for r in results:
                 if 'metadata' not in r or r.get('metadata') is None:
-                    r['metadata'] = crawler_tool.extract_metadata(r['title'])
+                    r['metadata'] = BaseCrawler.extract_metadata(r['title'])
                     cache_updated = True
             
             if cache_updated:
@@ -161,8 +157,6 @@ async def search_stream(request: Request, q: str, db: AsyncSession = Depends(get
                         print(f"Failed to cache results for {site}: {e}")
                 
                 yield {"event": "results", "data": json.dumps(item)}
-
-    return EventSourceResponse(event_generator())
 
     return EventSourceResponse(event_generator())
 

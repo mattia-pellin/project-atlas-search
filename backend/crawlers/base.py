@@ -96,49 +96,40 @@ class BaseCrawler:
         """
         raise NotImplementedError
 
+    @staticmethod
+    def _normalize_resolution(raw: str) -> str:
+        """Normalize a raw resolution string to a canonical tag (e.g. '4k' -> '2160p')."""
+        q = raw.lower().lstrip('m')
+        if q in ('4k', '2160p'):
+            return '2160p'
+        elif q in ('1080p', '1080'):
+            return '1080p'
+        elif q == '1080i':
+            return '1080i'
+        elif q in ('720p', '720', '720i'):
+            return '720p' if q != '720i' else '720i'
+        return q
+
     def extract_quality(self, title: str) -> str:
         """
         Extract video resolution from a release title.
+        Tries guessit first, then falls back to a regex scan.
         """
         import re
         quality = "N/A"
         try:
             import guessit
             guess = guessit.guessit(title)
-            if 'screen_size' in guess:
-                quality = str(guess['screen_size'])
-            elif 'video_resolution' in guess:
-                quality = str(guess['video_resolution'])
-            
+            raw = guess.get('screen_size') or guess.get('video_resolution')
+            if raw:
+                quality = self._normalize_resolution(str(raw))
         except Exception:
             pass
 
-        if quality != "N/A":
-            quality = str(quality).lower().lstrip('m')
-            if quality in ('4k', '2160p'):
-                quality = '2160p'
-            elif quality in ('1080p', '1080'):
-                quality = '1080p'
-            elif quality == '1080i':
-                quality = '1080i'
-            elif quality in ('720p', '720i', '720'):
-                quality = '720p'
-        
         if quality == "N/A":
             q_match = re.search(r'(?i)\b(m?480[pi]?|m?576[pi]?|m?720[pi]?|m?1080[pi]?|m?2160[pi]?|m?4k)\b', title)
             if q_match:
-                q = q_match.group(1).lower().lstrip('m')
-                if q == '4k':
-                    q = '2160p'
-                elif q in ('1080', '1080p'):
-                    q = '1080p'
-                elif q == '1080i':
-                    q = '1080i'
-                elif q in ('720', '720p'):
-                    q = '720p'
-                elif q == '720i':
-                    q = '720i'
-                quality = q
+                quality = self._normalize_resolution(q_match.group(1))
 
         return quality
 
@@ -301,7 +292,25 @@ class BaseCrawler:
             pass
         return "Unknown"
 
-    def clean_query(self, query: str) -> str:
+    @staticmethod
+    def extract_password(text: str) -> Optional[str]:
+        """
+        Extract a password from a block of text.
+        Looks for patterns like 'Password: foo', 'pwd: bar', 'pass: baz'.
+        Uses word boundaries and a negative lookbehind to avoid false positives
+        from MediaInfo output (e.g. 'Password' in technical fields).
+        """
+        import re
+        pwd_match = re.search(
+            r'(?i)(?<![\w-])(?:pwd|psw|password|pass)\b\s*[:\-]\s*([^\s<]+)',
+            text
+        )
+        if pwd_match:
+            return pwd_match.group(1).strip().rstrip('.,;)')
+        return None
+
+    @staticmethod
+    def clean_query(query: str) -> str:
         """
         Clean the query by removing Italian articles, prepositions, 
         and words strictly equal to 1 character long, treating anything
@@ -318,39 +327,39 @@ class BaseCrawler:
             'col', 'coi', 'sul', 'sullo', 'sulla', 'sui', 'sugli', 'sulle',
             'pel', 'pei'
         }
-        
+
         import re
-        
+
         # Replace apostrophes with space so "L'amore" -> "L amore"
-        text = re.sub(r"['’]", " ", query)
-        
+        text = re.sub(r"['']", " ", query)
+
         words = text.split()
         cleaned_words = []
         for w in words:
             if len(w) == 1:
                 continue
-            
+
             w_norm = w.lower()
             if w_norm in _FILTER_WORDS:
                 continue
-                
+
             cleaned_words.append(w)
-            
+
         return " ".join(cleaned_words)
 
-    def validate_query(self, query: str) -> bool:
+    @staticmethod
+    def validate_query(query: str) -> bool:
         """
         Validate the query based on the 'at least one word >= 4 chars OR two words >= 3 chars' rule
         applied to the CLEANED query.
         """
-        cleaned = self.clean_query(query)
+        cleaned = BaseCrawler.clean_query(query)
         words = cleaned.split()
-        
+
         if not words:
             return False
-            
+
         count_ge_4 = sum(1 for w in words if len(w) >= 4)
         count_ge_3 = sum(1 for w in words if len(w) >= 3)
-        
-        return count_ge_4 >= 1 or count_ge_3 >= 2
 
+        return count_ge_4 >= 1 or count_ge_3 >= 2

@@ -96,14 +96,8 @@ class DDLWorldCrawler(DLECrawler):
                 links.append(href)
                 seen.add(href)
 
-        # Extract password - improved regex with word boundaries and lookbehind to avoid MediaInfo matches,
-        # and stopping at the first space or HTML tag to avoid capturing trailing text.
-        password = None
-        # Pattern: (?i)(?<![\w-])(?:pwd|psw|password|pass)\b\s*[:\-]\s*([^\s<]+)
-        # matches standalone pwd/psw/password/pass followed by : or - and the value
-        pwd_match = re.search(r'(?i)(?<![\w-])(?:pwd|psw|password|pass)\b\s*[:\-]\s*([^\s<]+)', body_text)
-        if pwd_match:
-            password = pwd_match.group(1).strip().rstrip('.,;)')
+        # Extract password using the shared helper from BaseCrawler
+        password = self.extract_password(body_text)
 
         logger.info(f"[{self.name}] Extracted {len(links)} links and password: {password}")
         return {"links": links, "password": password}

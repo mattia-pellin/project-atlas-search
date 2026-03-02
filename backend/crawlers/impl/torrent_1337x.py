@@ -4,8 +4,6 @@ from typing import Dict, Any, List
 import urllib.parse
 from backend.crawlers.base import BaseCrawler
 
-import dns.resolver
-
 class Torrent1337xCrawler(BaseCrawler):
     name = "1337x"
     # Using explicit .to domain as requested
@@ -15,31 +13,15 @@ class Torrent1337xCrawler(BaseCrawler):
         super().__init__(username, password)
 
     async def init_session(self):
-        # We rely on BaseCrawler's curl_cffi session to bypass standard protections
-        await super().init_session()
+        # If the user has not configured a custom DNS in settings, default to Google DNS
+        # for 1337x.to specifically, since it may be filtered/censored on ISP-level DNS
+        # in some regions. If a custom DNS is already configured, respect it instead.
+        dns_from_settings = getattr(self, 'dns_servers', 'system')
+        if not dns_from_settings or dns_from_settings.strip().lower() == 'system':
+            self.dns_servers = '8.8.8.8,8.8.4.4'
 
-        # Specify Google DNS resolution for 1337x.to
-        try:
-            res = dns.resolver.Resolver()
-            res.nameservers = ['8.8.8.8', '8.8.4.4']
-            ans = res.resolve('1337x.to', 'A')
-            ip = ans[0].to_text()
-            
-            # libcurl CURLOPT_RESOLVE option is 10203
-            resolve_list = [f"1337x.to:443:{ip}", f"1337x.to:80:{ip}"]
-            
-            # Close original session and recreate with custom options
-            if hasattr(self, 'session') and self.session:
-                await self.session.close()
-            
-            from curl_cffi.requests import AsyncSession
-            self.session = AsyncSession(
-                impersonate="chrome120", 
-                curl_options={10203: resolve_list}
-            )
-        except Exception as e:
-            # Fallback to standard resolution if dns.resolver fails
-            pass
+        # BaseCrawler.init_session handles impersonation, DNS resolution, and session creation.
+        await super().init_session()
         
     async def search(self, query: str, limit: int = 50) -> List[Dict[str, Any]]:
         url = f"{self.base_url}/sort-search/{urllib.parse.quote(query)}/seeders/desc/1/"

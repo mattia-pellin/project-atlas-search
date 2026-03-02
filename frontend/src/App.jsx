@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Loader2, Download, Settings, ChevronDown, ChevronUp } from 'lucide-react';
 import './App.css';
-import { fetchDownloadLinks } from './lib/api';
+import { fetchDownloadLinks, API_BASE } from './lib/api';
 import SettingsModal from './components/SettingsModal';
 import ResultsTable from './components/ResultsTable';
-
-const API_BASE = '/api';
 
 function App() {
   const [query, setQuery] = useState('');
@@ -114,7 +112,7 @@ function App() {
         <h1 className="logo" style={{ display: 'flex', alignItems: 'center', gap: '12px', fontFamily: 'var(--logo-font)' }}>
           <img src="/logo.png" alt="Logo" style={{ width: '40px', height: '40px', display: 'block' }} />
           Project: Atlas - Search
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 'normal', alignSelf: 'flex-end', marginBottom: '4px' }}>v1.5.0</span>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 'normal', alignSelf: 'flex-end', marginBottom: '4px' }}>v{__APP_VERSION__}</span>
         </h1>
         <button className="settings-btn" onClick={() => setShowSettings(true)}>
           <Settings size={24} />

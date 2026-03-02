@@ -15,21 +15,23 @@ class LaForestaIncantataCrawler(DLECrawler):
     async def login(self) -> bool:
         if not self.username or not self.password:
             return False
-            
-        # Get homepage for cookies
-        await self.session.get(self.base_url)
-        
+
+        # Warm up session and acquire CF cookies via bypass-aware fetch.
+        # LFI uses a Cloudflare-protected login page, so we must go through
+        # fetch_html (which falls back to FlareSolverr when CF is detected).
+        await self.fetch_html(self.base_url)
+
         login_data = {
             "login_name": self.username,
             "login_password": self.password,
             "login": "submit",
             "login_not_save": "1"
         }
-        
-        # LFI requires targeting the ?do=login endpoint specifically
-        login_url = f"{self.base_url.rstrip('/')}/index.php?do=login"
-        res = await self.session.post(login_url, data=login_data, headers={"Referer": self.base_url})
-        return self.username.lower().split('@')[0] in res.text.lower()
+
+        # LFI login endpoint is /?do=login (not /index.php?do=login like stock DLE)
+        login_url = f"{self.base_url.rstrip('/')}/?do=login"
+        html = await self.post_html(login_url, data=login_data, headers={"Referer": self.base_url})
+        return self.username.lower().split('@')[0] in html.lower()
 
     async def fetch_links(self, url: str) -> Dict[str, Any]:
         """
@@ -79,13 +81,7 @@ class LaForestaIncantataCrawler(DLECrawler):
             return result
 
         # 5. Password
-        password = None
-        # Improved regex with word boundaries and lookbehind to avoid MediaInfo matches,
-        # and stopping at the first space or HTML tag to avoid capturing trailing text.
-        # Use a space separator in get_text() to prevent words from melding together across tags.
-        pwd_match = re.search(r'(?i)(?<![\w-])(?:pwd|psw|password|pass)\b\s*[:\-]\s*([^\s<]+)', soup.get_text(" "))
-        if pwd_match:
-            password = pwd_match.group(1).strip().rstrip('.,;)')
+        password = self.extract_password(soup.get_text(" "))
 
         logger.info(f"[{self.name}] Extracted {len(links)} links for {url}")
         return {"links": links, "password": password}
