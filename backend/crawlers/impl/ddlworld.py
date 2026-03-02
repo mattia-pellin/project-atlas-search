@@ -99,5 +99,5 @@ class DDLWorldCrawler(DLECrawler):
         # Extract password using the shared helper from BaseCrawler
         password = self.extract_password(body_text)
 
-        logger.info(f"[{self.name}] Extracted {len(links)} links and password: {password}")
+        logger.info(f"[{self.name}] Extracted {len(links)} links. Password extracted: {'Yes' if password else 'No'}")
         return {"links": links, "password": password}

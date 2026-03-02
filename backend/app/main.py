@@ -101,7 +101,8 @@ if os.path.isdir(frontend_build_path):
     # SPA catch-all: serve index.html for any non-API route
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
-        file_path = os.path.join(frontend_build_path, full_path)
-        if full_path and os.path.isfile(file_path):
+        abs_build_path = os.path.abspath(frontend_build_path)
+        file_path = os.path.abspath(os.path.join(abs_build_path, full_path))
+        if full_path and file_path.startswith(abs_build_path) and os.path.isfile(file_path):
             return FileResponse(file_path)
-        return FileResponse(os.path.join(frontend_build_path, "index.html"))
+        return FileResponse(os.path.join(abs_build_path, "index.html"))
