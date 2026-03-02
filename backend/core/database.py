@@ -20,24 +20,6 @@ async def get_db():
 
 async def init_db():
     import backend.models.search # Prevents circular import
-    from sqlalchemy import text
     print("Initializing database...")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        
-        # Simple migration: check if flaresolverr_url exists in app_settings
-        print("Checking for migrations...")
-        try:
-            # Check column existence. 
-            result = await conn.execute(text("PRAGMA table_info(app_settings)"))
-            columns = [row[1] for row in result.fetchall()]
-            if 'flaresolverr_url' not in columns:
-                print("Migration: Adding flaresolverr_url to app_settings")
-                await conn.execute(text("ALTER TABLE app_settings ADD COLUMN flaresolverr_url VARCHAR DEFAULT ''"))
-                print("Migration successful: flaresolverr_url added.")
-            else:
-                print("Migration: flaresolverr_url already exists.")
-        except Exception as e:
-            print(f"Migration error: {e}")
-            import traceback
-            traceback.print_exc()
