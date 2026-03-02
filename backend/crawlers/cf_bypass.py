@@ -24,9 +24,7 @@ async def fetch_with_cf_bypass(session, url: str, flaresolverr_url: str = "", me
         text = res.text
         
         is_blocked = (
-            res.status_code in [403, 503] and 
-            ("Just a moment" in text or "Enable JavaScript" in text or 
-             "challenge-platform" in text or "Ci siamo quasi" in text or "Cloudflare" in text)
+            res.status_code in [403, 503]
         )
         
         if not is_blocked:

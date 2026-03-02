@@ -24,6 +24,9 @@ export default function SettingsModal({ onClose }) {
     const [fsProtocol, setFsProtocol] = useState('http');
     const [fsHost, setFsHost] = useState('flaresolverr');
     const [fsPort, setFsPort] = useState('8191');
+    const [qbProtocol, setQbProtocol] = useState('http');
+    const [qbHost, setQbHost] = useState('');
+    const [qbPort, setQbPort] = useState('8080');
 
     const [credentials, setCredentials] = useState({});
     const [expandedSites, setExpandedSites] = useState({});
@@ -74,11 +77,11 @@ export default function SettingsModal({ onClose }) {
                     }
                 }
             } else {
-                // Pre-fill defaults if empty
+                // Leave empty if not configured
                 setFsProtocol('http');
-                setFsHost('flaresolverr');
-                setFsPort('8191');
-                setFlaresolverrUrl('http://flaresolverr:8191');
+                setFsHost('');
+                setFsPort('');
+                setFlaresolverrUrl('');
             }
 
             const credsMap = {};
@@ -91,8 +94,30 @@ export default function SettingsModal({ onClose }) {
             data.credentials.forEach(c => {
                 if (credsMap[c.site_key]) {
                     credsMap[c.site_key] = { ...credsMap[c.site_key], ...c };
+                } else if (c.site_key === 'qbittorrent' || c.site_key === 'jdownloader') {
+                    credsMap[c.site_key] = c;
                 }
             });
+            // Ensure integrations are present even if not in DB
+            if (!credsMap['qbittorrent']) credsMap['qbittorrent'] = { site_key: 'qbittorrent', username: '', password: '', custom_name: '', custom_url: '', is_enabled: true };
+            if (!credsMap['jdownloader']) credsMap['jdownloader'] = { site_key: 'jdownloader', username: '', password: '', custom_name: '', custom_url: '', is_enabled: true };
+
+            if (credsMap['qbittorrent'] && credsMap['qbittorrent'].custom_url) {
+                try {
+                    // Try parsing as standard URL
+                    const tempUrl = credsMap['qbittorrent'].custom_url.includes('://')
+                        ? credsMap['qbittorrent'].custom_url
+                        : `http://${credsMap['qbittorrent'].custom_url}`;
+
+                    const qurl = new URL(tempUrl);
+                    setQbProtocol(qurl.protocol.replace(':', ''));
+                    setQbHost(qurl.hostname);
+                    setQbPort(qurl.port || (qurl.protocol === 'https:' ? '443' : '80'));
+                } catch (e) {
+                    setQbHost(credsMap['qbittorrent'].custom_url);
+                }
+            }
+
             setCredentials(credsMap);
             setLoading(false);
         }).catch(console.error);
@@ -143,14 +168,48 @@ export default function SettingsModal({ onClose }) {
             is_enabled: credentials[site]?.is_enabled !== false
         }));
 
+        // Add integrations
+        ['qbittorrent', 'jdownloader'].forEach(site => {
+            if (credentials[site]) {
+                let customUrl = credentials[site].custom_url || '';
+                if (site === 'qbittorrent' && qbHost) {
+                    let portPart = '';
+                    if (qbPort && !(qbProtocol === 'http' && qbPort === '80') && !(qbProtocol === 'https' && qbPort === '443')) {
+                        portPart = `:${qbPort}`;
+                    }
+                    customUrl = `${qbProtocol}://${qbHost}${portPart}`;
+                }
+                const isConfigured = site === 'jdownloader'
+                    ? !!(credentials[site].username && credentials[site].password && credentials[site].custom_name)
+                    : !!(credentials[site].username && credentials[site].password && qbHost);
+
+                credsList.push({
+                    site_key: site,
+                    username: credentials[site].username || '',
+                    password: credentials[site].password || '',
+                    custom_name: credentials[site].custom_name || '', // Using custom_name for device
+                    custom_url: customUrl, // Using custom_url for qb host
+                    is_enabled: isConfigured  // implicitly enable if configured
+                });
+            }
+        });
+
         try {
             const finalDns = dnsList.length === 0 ? 'system' : dnsList.join(',');
+            let fsUrl = '';
+            if (fsHost) {
+                let fsPortPart = '';
+                if (fsPort && !(fsProtocol === 'http' && fsPort === '80') && !(fsProtocol === 'https' && fsPort === '443')) {
+                    fsPortPart = `:${fsPort}`;
+                }
+                fsUrl = `${fsProtocol}://${fsHost}${fsPortPart}`;
+            }
             await updateSettings({
                 max_results: parseInt(maxResults),
                 dns_servers: finalDns,
                 cache_enabled: cacheEnabled,
                 cache_ttl_minutes: parseInt(cacheTtl) || 60,
-                flaresolverr_url: fsHost ? `${fsProtocol}://${fsHost}${fsPort ? `:${fsPort}` : ''}` : '',
+                flaresolverr_url: fsUrl,
                 credentials: credsList
             });
             onClose();
@@ -302,171 +361,64 @@ export default function SettingsModal({ onClose }) {
                         </div>
 
                         {/* Custom DNS */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
-                            {/* Custom DNS */}
-                            <div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '0.5rem' }}>
-                                    <label style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 500 }}>DNS Servers</label>
-                                    <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)' }}>Press Enter to add</span>
-                                </div>
-
-                                <div style={{
-                                    display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center',
-                                    padding: '0.5rem 0.75rem', borderRadius: '8px',
-                                    border: '1px solid rgba(255,255,255,0.15)',
-                                    background: 'rgba(0,0,0,0.3)', minHeight: '46px',
-                                    transition: 'all 0.2s'
-                                }} onClick={() => document.getElementById('dns-input-field').focus()}>
-
-                                    {dnsList.slice(0, showAllDns ? dnsList.length : 3).map((ip, i) => {
-                                        const valid = isValidIpv4(ip);
-                                        return (
-                                            <div key={i} style={{
-                                                display: 'flex', alignItems: 'center', gap: '0.4rem',
-                                                padding: '0.2rem 0.6rem', borderRadius: '20px',
-                                                background: 'rgba(255,255,255,0.1)', color: 'white',
-                                                fontSize: '0.85rem', border: `1px solid ${valid ? 'rgba(255,255,255,0.2)' : 'rgba(239,68,68,0.5)'}`
-                                            }}>
-                                                <span>{ip}</span>
-                                                {valid ? <CheckCircle2 size={13} color="var(--success-color)" /> : <AlertCircle size={13} color="#ef4444" />}
-                                                <X size={13} style={{ cursor: 'pointer', opacity: 0.6 }} onClick={(e) => { e.stopPropagation(); removeDns(i); }} onMouseOver={e => e.currentTarget.style.opacity = 1} onMouseOut={e => e.currentTarget.style.opacity = 0.6} />
-                                            </div>
-                                        )
-                                    })}
-
-                                    {!showAllDns && dnsList.length > 3 && (
-                                        <div
-                                            onClick={(e) => { e.stopPropagation(); setShowAllDns(true); }}
-                                            style={{
-                                                padding: '0.2rem 0.6rem', borderRadius: '20px',
-                                                background: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa', cursor: 'pointer',
-                                                fontSize: '0.8rem', fontWeight: 600, border: '1px solid rgba(59, 130, 246, 0.3)'
-                                            }}
-                                        >
-                                            +{dnsList.length - 3} more
-                                        </div>
-                                    )}
-
-                                    <input
-                                        id="dns-input-field"
-                                        type="text"
-                                        value={dnsInput}
-                                        onChange={e => setDnsInput(e.target.value)}
-                                        onKeyDown={handleDnsKeyDown}
-                                        placeholder={dnsList.length === 0 ? "System Default" : "Add IP..."}
-                                        style={{
-                                            flex: '1 1 auto', border: 'none', background: 'transparent',
-                                            color: 'white', minWidth: '100px', outline: 'none',
-                                            fontSize: '0.9rem', padding: '0.2rem'
-                                        }}
-                                        onFocus={() => setShowAllDns(true)}
-                                        onBlur={() => setTimeout(() => setShowAllDns(false), 200)}
-                                    />
-                                </div>
+                        <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '0.5rem' }}>
+                                <label style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 500 }}>DNS Servers</label>
+                                <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)' }}>Press Enter to add</span>
                             </div>
 
-                            {/* FlareSolverr Config */}
-                            <div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '0.5rem' }}>
-                                    <label style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 500 }}>FlareSolverr</label>
-                                    <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', userSelect: 'none' }}>proto://host:port</span>
-                                </div>
+                            <div style={{
+                                display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center',
+                                padding: '0.5rem 0.75rem', borderRadius: '8px',
+                                border: '1px solid rgba(255,255,255,0.15)',
+                                background: 'rgba(0,0,0,0.3)', minHeight: '46px',
+                                transition: 'all 0.2s'
+                            }} onClick={() => document.getElementById('dns-input-field').focus()}>
 
-                                <div style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    background: 'rgba(0,0,0,0.3)',
-                                    borderRadius: '8px',
-                                    border: '1px solid rgba(255,255,255,0.15)',
-                                    overflow: 'hidden',
-                                    height: '46px',
-                                    boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)'
-                                }}>
-                                    {/* Protocol Dropdown */}
-                                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', height: '100%' }}>
-                                        <select
-                                            value={fsProtocol}
-                                            onChange={e => setFsProtocol(e.target.value)}
-                                            style={{
-                                                padding: '0 1.6rem 0 0.75rem',
-                                                background: 'transparent',
-                                                border: 'none',
-                                                color: 'white',
-                                                fontSize: '0.9rem',
-                                                fontWeight: 400,
-                                                outline: 'none',
-                                                width: '78px',
-                                                height: '100%',
-                                                cursor: 'pointer',
-                                                appearance: 'none',
-                                                WebkitAppearance: 'none',
-                                                zIndex: 2,
-                                                display: 'flex',
-                                                alignItems: 'center'
-                                            }}
-                                        >
-                                            <option value="http" style={{ background: '#0f172a', color: 'white' }}>http</option>
-                                            <option value="https" style={{ background: '#0f172a', color: 'white' }}>https</option>
-                                        </select>
-                                        <div style={{ position: 'absolute', right: '0.6rem', pointerEvents: 'none', display: 'flex', alignItems: 'center', height: '100%', opacity: 0.4 }}>
-                                            <ChevronDown size={14} />
+                                {dnsList.slice(0, showAllDns ? dnsList.length : 3).map((ip, i) => {
+                                    const valid = isValidIpv4(ip);
+                                    return (
+                                        <div key={i} style={{
+                                            display: 'flex', alignItems: 'center', gap: '0.4rem',
+                                            padding: '0.2rem 0.6rem', borderRadius: '20px',
+                                            background: 'rgba(255,255,255,0.1)', color: 'white',
+                                            fontSize: '0.85rem', border: `1px solid ${valid ? 'rgba(255,255,255,0.2)' : 'rgba(239,68,68,0.5)'}`
+                                        }}>
+                                            <span>{ip}</span>
+                                            {valid ? <CheckCircle2 size={13} color="var(--success-color)" /> : <AlertCircle size={13} color="#ef4444" />}
+                                            <X size={13} style={{ cursor: 'pointer', opacity: 0.6 }} onClick={(e) => { e.stopPropagation(); removeDns(i); }} onMouseOver={e => e.currentTarget.style.opacity = 1} onMouseOut={e => e.currentTarget.style.opacity = 0.6} />
                                         </div>
-                                    </div>
+                                    )
+                                })}
 
-                                    {/* Separator :// */}
-                                    <div style={{ display: 'flex', alignItems: 'center', height: '100%', padding: '0 0.1rem' }}>
-                                        <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.9rem', userSelect: 'none', lineHeight: 'normal' }}>://</span>
+                                {!showAllDns && dnsList.length > 3 && (
+                                    <div
+                                        onClick={(e) => { e.stopPropagation(); setShowAllDns(true); }}
+                                        style={{
+                                            padding: '0.2rem 0.6rem', borderRadius: '20px',
+                                            background: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa', cursor: 'pointer',
+                                            fontSize: '0.8rem', fontWeight: 600, border: '1px solid rgba(59, 130, 246, 0.3)'
+                                        }}
+                                    >
+                                        +{dnsList.length - 3} more
                                     </div>
+                                )}
 
-                                    {/* Host Input */}
-                                    <div style={{ display: 'flex', alignItems: 'center', flex: 2, height: '100%' }}>
-                                        <input
-                                            type="text"
-                                            value={fsHost}
-                                            onChange={e => setFsHost(e.target.value)}
-                                            placeholder="flaresolverr"
-                                            style={{
-                                                border: 'none',
-                                                background: 'transparent',
-                                                color: 'white',
-                                                outline: 'none',
-                                                fontSize: '0.9rem',
-                                                fontWeight: 400,
-                                                width: '100%',
-                                                height: '100%',
-                                                padding: '0 0.4rem',
-                                                lineHeight: 'normal'
-                                            }}
-                                        />
-                                    </div>
-
-                                    {/* Separator : */}
-                                    <div style={{ display: 'flex', alignItems: 'center', height: '100%', padding: '0 0.1rem' }}>
-                                        <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.9rem', userSelect: 'none', lineHeight: 'normal' }}>:</span>
-                                    </div>
-
-                                    {/* Port Input */}
-                                    <div style={{ display: 'flex', alignItems: 'center', flex: 1, height: '100%' }}>
-                                        <input
-                                            type="text"
-                                            value={fsPort}
-                                            onChange={e => setFsPort(e.target.value)}
-                                            placeholder="8191"
-                                            style={{
-                                                border: 'none',
-                                                background: 'transparent',
-                                                color: 'white',
-                                                outline: 'none',
-                                                fontSize: '0.9rem',
-                                                fontWeight: 400,
-                                                width: '100%',
-                                                height: '100%',
-                                                padding: '0 0.5rem',
-                                                lineHeight: 'normal'
-                                            }}
-                                        />
-                                    </div>
-                                </div>
+                                <input
+                                    id="dns-input-field"
+                                    type="text"
+                                    value={dnsInput}
+                                    onChange={e => setDnsInput(e.target.value)}
+                                    onKeyDown={handleDnsKeyDown}
+                                    placeholder={dnsList.length === 0 ? "System Default" : "Add IP..."}
+                                    style={{
+                                        flex: '1 1 auto', border: 'none', background: 'transparent',
+                                        color: 'white', minWidth: '100px', outline: 'none',
+                                        fontSize: '0.9rem', padding: '0.2rem'
+                                    }}
+                                    onFocus={() => setShowAllDns(true)}
+                                    onBlur={() => setTimeout(() => setShowAllDns(false), 200)}
+                                />
                             </div>
                         </div>
                     </div>
@@ -560,6 +512,238 @@ export default function SettingsModal({ onClose }) {
                                                         />
                                                     </div>
                                                 </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* INTEGRATIONS */}
+                    <div>
+                        <h3 style={{ fontSize: '1.1rem', fontWeight: 500, marginBottom: '0.8rem', color: 'white' }}>Integrations</h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+
+                            {/* FlareSolverr Block */}
+                            {(() => {
+                                const isFsConfigured = !!(fsProtocol && fsHost && fsPort);
+                                const isFsEmpty = !fsHost && !fsPort;
+
+                                let fsStatusText = 'Not Configured';
+                                let fsStatusColor = '#ef4444';
+                                if (isFsConfigured) {
+                                    fsStatusText = 'Configured';
+                                    fsStatusColor = 'var(--success-color)';
+                                }
+
+                                return (
+                                    <div style={{
+                                        background: 'rgba(255,255,255,0.05)',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        borderRadius: '8px',
+                                        transition: 'all 0.3s ease',
+                                        overflow: 'hidden'
+                                    }}>
+                                        <div style={{
+                                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                            padding: '0.8rem 1rem', cursor: 'pointer'
+                                        }} onClick={() => toggleSiteExpand('flaresolverr')}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyItems: 'center', gap: '0.5rem' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', paddingTop: '2px' }}>
+                                                    {expandedSites['flaresolverr'] ? <ChevronDown size={18} color="rgba(255,255,255,0.5)" /> : <ChevronRight size={18} color="rgba(255,255,255,0.5)" />}
+                                                </div>
+                                                <h4 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, userSelect: 'none', lineHeight: 1 }}>FlareSolverr</h4>
+                                            </div>
+                                            <div style={{ fontSize: '0.8rem', color: fsStatusColor }}>
+                                                {fsStatusText}
+                                            </div>
+                                        </div>
+
+                                        {expandedSites['flaresolverr'] && (
+                                            <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', padding: '1rem' }}>
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                                                    <div>
+                                                        <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>Protocol</label>
+                                                        <select
+                                                            value={fsProtocol}
+                                                            onChange={e => setFsProtocol(e.target.value)}
+                                                            style={{ padding: '0.6rem 2.8rem 0.6rem 0.8rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', color: 'white', width: '100%', fontSize: '0.9rem', outline: 'none', cursor: 'pointer' }}
+                                                        >
+                                                            <option value="http" style={{ background: '#0f172a', color: 'white' }}>http</option>
+                                                            <option value="https" style={{ background: '#0f172a', color: 'white' }}>https</option>
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>Host</label>
+                                                        <input
+                                                            type="text"
+                                                            placeholder="flaresolverr"
+                                                            value={fsHost}
+                                                            onChange={e => setFsHost(e.target.value)}
+                                                            style={{ padding: '0.6rem 0.8rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', color: 'white', width: '100%', fontSize: '0.9rem', outline: 'none' }}
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>Port</label>
+                                                        <input
+                                                            type="text"
+                                                            placeholder="8191"
+                                                            value={fsPort}
+                                                            onChange={e => setFsPort(e.target.value)}
+                                                            style={{ padding: '0.6rem 0.8rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', color: 'white', width: '100%', fontSize: '0.9rem', outline: 'none' }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })()}
+
+                            {/* JDownloader and qBittorrent Blocks */}
+                            {['jdownloader', 'qbittorrent'].map(site => {
+                                const isConfigured = site === 'jdownloader'
+                                    ? !!(credentials[site]?.username && credentials[site]?.password && credentials[site]?.custom_name)
+                                    : !!(credentials[site]?.username && credentials[site]?.password && qbHost);
+
+                                const isEmpty = site === 'jdownloader'
+                                    ? (!credentials[site]?.username && !credentials[site]?.password && !credentials[site]?.custom_name)
+                                    : (!credentials[site]?.username && !credentials[site]?.password && !qbHost);
+
+                                let statusText = 'Optional';
+                                let statusColor = 'var(--text-secondary)';
+                                if (isConfigured) {
+                                    statusText = 'Configured';
+                                    statusColor = 'var(--success-color)';
+                                } else if (!isEmpty) {
+                                    statusText = 'Not Configured';
+                                    statusColor = '#ef4444';
+                                }
+
+                                const isExpanded = expandedSites[site];
+                                const siteTitle = site === 'qbittorrent' ? 'qBittorrent' : 'JDownloader';
+
+                                return (
+                                    <div key={site} style={{
+                                        background: !isEmpty ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.2)',
+                                        border: !isEmpty ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(255,255,255,0.05)',
+                                        borderRadius: '8px',
+                                        transition: 'all 0.3s ease',
+                                        overflow: 'hidden'
+                                    }}>
+                                        <div style={{
+                                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                            padding: '0.8rem 1rem', opacity: !isEmpty ? 1 : 0.6, cursor: 'pointer'
+                                        }} onClick={() => toggleSiteExpand(site)}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyItems: 'center', gap: '0.5rem' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', paddingTop: '2px' }}>
+                                                    {isExpanded ? <ChevronDown size={18} color="rgba(255,255,255,0.5)" /> : <ChevronRight size={18} color="rgba(255,255,255,0.5)" />}
+                                                </div>
+                                                <h4 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, userSelect: 'none', lineHeight: 1 }}>{siteTitle}</h4>
+                                            </div>
+
+                                            <div style={{ fontSize: '0.8rem', color: statusColor }}>
+                                                {statusText}
+                                            </div>
+                                        </div>
+
+                                        {isExpanded && (
+                                            <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                                {site === 'jdownloader' ? (
+                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                                                        <div>
+                                                            <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>Username</label>
+                                                            <input
+                                                                type="text"
+                                                                placeholder="MyJDownloader account"
+                                                                value={credentials[site]?.username || ''}
+                                                                onChange={e => handleCredChange(site, 'username', e.target.value)}
+                                                                style={{ padding: '0.6rem 0.8rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', color: 'white', width: '100%', fontSize: '0.9rem', outline: 'none' }}
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>Password</label>
+                                                            <input
+                                                                type="password"
+                                                                placeholder="Password"
+                                                                value={credentials[site]?.password || ''}
+                                                                onChange={e => handleCredChange(site, 'password', e.target.value)}
+                                                                style={{ padding: '0.6rem 0.8rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', color: 'white', width: '100%', fontSize: '0.9rem', outline: 'none' }}
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>Device Name</label>
+                                                            <input
+                                                                type="text"
+                                                                placeholder="JDownloader@Docker"
+                                                                value={credentials[site]?.custom_name || ''}
+                                                                onChange={e => handleCredChange(site, 'custom_name', e.target.value)}
+                                                                style={{ padding: '0.6rem 0.8rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', color: 'white', width: '100%', fontSize: '0.9rem', outline: 'none' }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                                                            <div>
+                                                                <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>Username</label>
+                                                                <input
+                                                                    type="text"
+                                                                    placeholder="admin"
+                                                                    value={credentials[site]?.username || ''}
+                                                                    onChange={e => handleCredChange(site, 'username', e.target.value)}
+                                                                    style={{ padding: '0.6rem 0.8rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', color: 'white', width: '100%', fontSize: '0.9rem', outline: 'none' }}
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>Password</label>
+                                                                <input
+                                                                    type="password"
+                                                                    placeholder="Password"
+                                                                    value={credentials[site]?.password || ''}
+                                                                    onChange={e => handleCredChange(site, 'password', e.target.value)}
+                                                                    style={{ padding: '0.6rem 0.8rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', color: 'white', width: '100%', fontSize: '0.9rem', outline: 'none' }}
+                                                                />
+                                                            </div>
+                                                            {/* Empty column to keep grid consistent */}
+                                                            <div></div>
+                                                        </div>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+                                                            <div>
+                                                                <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>Protocol</label>
+                                                                <select
+                                                                    value={qbProtocol}
+                                                                    onChange={e => setQbProtocol(e.target.value)}
+                                                                    style={{ padding: '0.6rem 2.8rem 0.6rem 0.8rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', color: 'white', width: '100%', fontSize: '0.9rem', outline: 'none', cursor: 'pointer' }}
+                                                                >
+                                                                    <option value="http" style={{ background: '#0f172a', color: 'white' }}>http</option>
+                                                                    <option value="https" style={{ background: '#0f172a', color: 'white' }}>https</option>
+                                                                </select>
+                                                            </div>
+                                                            <div>
+                                                                <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>Host</label>
+                                                                <input
+                                                                    type="text"
+                                                                    placeholder="localhost"
+                                                                    value={qbHost}
+                                                                    onChange={e => setQbHost(e.target.value)}
+                                                                    style={{ padding: '0.6rem 0.8rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', color: 'white', width: '100%', fontSize: '0.9rem', outline: 'none' }}
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>Port</label>
+                                                                <input
+                                                                    type="text"
+                                                                    placeholder="8080"
+                                                                    value={qbPort}
+                                                                    onChange={e => setQbPort(e.target.value)}
+                                                                    style={{ padding: '0.6rem 0.8rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', color: 'white', width: '100%', fontSize: '0.9rem', outline: 'none' }}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </>
+                                                )}
                                             </div>
                                         )}
                                     </div>

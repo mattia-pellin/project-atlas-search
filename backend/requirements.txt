@@ -16,3 +16,6 @@ dateparser
 pytest
 pytest-asyncio
 httpx
+
+qbittorrent-api
+myjdapi

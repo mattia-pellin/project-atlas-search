@@ -46,7 +46,10 @@ class Torrent1337xCrawler(BaseCrawler):
         
         try:
             html = await self.fetch_html(url)
-        except Exception:
+        except Exception as e:
+            from backend.crawlers.cf_bypass import CloudflareBypassError
+            if isinstance(e, CloudflareBypassError):
+                raise e
             return []
             
         soup = BeautifulSoup(html, 'lxml')

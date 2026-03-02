@@ -146,12 +146,15 @@ h1.logo {
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
+  overflow: hidden;
 }
 
 .results-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   text-align: left;
+  table-layout: fixed;
 }
 
 .results-table th,
@@ -169,6 +172,14 @@ h1.logo {
   font-size: 0.85rem;
   letter-spacing: 0.05em;
   white-space: nowrap;
+}
+
+.results-table th:first-child {
+  border-top-left-radius: 12px;
+}
+
+.results-table th:last-child {
+  border-top-right-radius: 12px;
 }
 
 .results-table tr:hover {

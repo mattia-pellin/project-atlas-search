@@ -13,6 +13,15 @@ from backend.models.search import SearchCache
 from typing import List, Optional
 import datetime
 
+def get_flaresolverr_url(settings) -> str:
+    env_flaresolverr = os.environ.get("FLARESOLVERR_URL", "")
+    if settings and settings.flaresolverr_url is not None:
+        if settings.flaresolverr_url == "disabled":
+            return ""
+        if settings.flaresolverr_url != "":
+            return settings.flaresolverr_url
+    return env_flaresolverr
+
 router = APIRouter()
 
 @router.get("/search/stream")
@@ -28,9 +37,9 @@ async def search_stream(request: Request, q: str, db: AsyncSession = Depends(get
     cache_enabled = settings.cache_enabled if settings else True
     cache_ttl_minutes = settings.cache_ttl_minutes if settings else 60
     
-    # Use env var as fallback if DB value is empty
-    env_flaresolverr = os.environ.get("FLARESOLVERR_URL", "")
-    flaresolverr_url = settings.flaresolverr_url if settings and settings.flaresolverr_url else env_flaresolverr
+    cache_ttl_minutes = settings.cache_ttl_minutes if settings else 60
+    
+    flaresolverr_url = get_flaresolverr_url(settings)
     
     force_refresh = request.query_params.get("force_refresh", "false").lower() == "true"
     
@@ -182,8 +191,7 @@ async def fetch_links(req: FetchLinksRequest, db: AsyncSession = Depends(get_db)
         settings_res = await db.execute(select(AppSettings).limit(1))
         settings = settings_res.scalars().first()
         dns_servers = settings.dns_servers if settings else "system"
-        env_flaresolverr = os.environ.get("FLARESOLVERR_URL", "")
-        flaresolverr_url = settings.flaresolverr_url if settings and settings.flaresolverr_url else env_flaresolverr
+        flaresolverr_url = get_flaresolverr_url(settings)
 
         res = await get_links_for_url(site_key, req.url, custom_url=cred.custom_url if cred else None, dns_servers=dns_servers, flaresolverr_url=flaresolverr_url, **kw)
         return res
@@ -215,8 +223,7 @@ async def get_settings(db: AsyncSession = Depends(get_db)):
     dns_servers = settings.dns_servers if settings else "system"
     cache_enabled = settings.cache_enabled if settings else True
     cache_ttl_minutes = settings.cache_ttl_minutes if settings else 60
-    env_flaresolverr = os.environ.get("FLARESOLVERR_URL", "")
-    flaresolverr_url = settings.flaresolverr_url if settings and settings.flaresolverr_url else env_flaresolverr
+    flaresolverr_url = get_flaresolverr_url(settings)
     
     # Get credentials from DB
     result = await db.execute(select(SiteCredential))
@@ -226,7 +233,9 @@ async def get_settings(db: AsyncSession = Depends(get_db)):
     from backend.crawlers.manager import REGISTERED_CRAWLERS
     
     creds_list = []
-    for site_key in REGISTERED_CRAWLERS.keys():
+    # All sites
+    all_keys = list(REGISTERED_CRAWLERS.keys()) + ['qbittorrent', 'jdownloader']
+    for site_key in all_keys:
         c = db_credentials.get(site_key)
         if c:
             creds_list.append({
@@ -267,7 +276,7 @@ async def update_settings(data: SettingsUpdate, db: AsyncSession = Depends(get_d
             dns_servers=data.dns_servers,
             cache_enabled=data.cache_enabled,
             cache_ttl_minutes=data.cache_ttl_minutes,
-            flaresolverr_url=data.flaresolverr_url
+            flaresolverr_url=data.flaresolverr_url or "disabled"
         )
         db.add(settings)
     else:
@@ -275,7 +284,7 @@ async def update_settings(data: SettingsUpdate, db: AsyncSession = Depends(get_d
         settings.dns_servers = data.dns_servers
         settings.cache_enabled = data.cache_enabled
         settings.cache_ttl_minutes = data.cache_ttl_minutes
-        settings.flaresolverr_url = data.flaresolverr_url
+        settings.flaresolverr_url = data.flaresolverr_url or "disabled"
         
     # Update credentials
     for cred in data.credentials:

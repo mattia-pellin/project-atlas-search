@@ -117,8 +117,10 @@ class BaseCrawler:
             quality = str(quality).lower().lstrip('m')
             if quality in ('4k', '2160p'):
                 quality = '2160p'
-            elif quality in ('1080p', '1080i', '1080'):
+            elif quality in ('1080p', '1080'):
                 quality = '1080p'
+            elif quality == '1080i':
+                quality = '1080i'
             elif quality in ('720p', '720i', '720'):
                 quality = '720p'
         
@@ -128,12 +130,16 @@ class BaseCrawler:
                 q = q_match.group(1).lower().lstrip('m')
                 if q == '4k':
                     q = '2160p'
-                elif q in ('1080', '1080i'):
+                elif q in ('1080', '1080p'):
                     q = '1080p'
-                elif q in ('720', '720i'):
+                elif q == '1080i':
+                    q = '1080i'
+                elif q in ('720', '720p'):
                     q = '720p'
+                elif q == '720i':
+                    q = '720i'
                 quality = q
-                
+
         return quality
 
     def extract_metadata(self, title: str) -> Dict[str, Any]:
@@ -226,7 +232,8 @@ class BaseCrawler:
                 "spa": "es", "spanish": "es",
                 "fra": "fr", "french": "fr",
                 "ger": "de", "german": "de",
-                "it": "it", "en": "en", "es": "es", "fr": "fr", "de": "de"
+                "chi": "zh", "chinese": "zh", "cinese": "zh",
+                "it": "it", "en": "en", "es": "es", "fr": "fr", "de": "de", "zh": "zh"
             }
             
             langs = guess.get("language", [])

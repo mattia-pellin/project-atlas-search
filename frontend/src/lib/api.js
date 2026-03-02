@@ -34,6 +34,28 @@ export const fetchDownloadLinks = async (site, url) => {
     return res.json();
 };
 
+export const sendToQBittorrent = async (links) => {
+    const res = await fetch(`${API_BASE}/integrations/qbittorrent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ links })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Failed to send to qBittorrent");
+    return data;
+};
+
+export const sendToJDownloader = async (links, password, packageName) => {
+    const res = await fetch(`${API_BASE}/integrations/jdownloader`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ links, password, package_name: packageName })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Failed to send to JDownloader");
+    return data;
+};
+
 // SSE Connection manager
 export class SearchStream {
     constructor(query, limit, onResults, onStatus, onDone, onError) {

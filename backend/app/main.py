@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from backend.api.router import router as api_router
+from backend.api.integrations import router as integrations_router
 from backend.core.database import engine, AsyncSessionLocal, init_db
 from backend.models.settings import Base, SiteCredential
 from sqlalchemy import select
@@ -24,8 +25,20 @@ async def lifespan(app: FastAPI):
                 with open(creds_path, 'r', encoding='utf-8') as f:
                     creds_data = json.load(f)
                     
+                from backend.models.settings import AppSettings
                 async with AsyncSessionLocal() as session:
                     for site_key, data in creds_data.items():
+                        if site_key == "flaresolverr":
+                            stmt = select(AppSettings)
+                            result = await session.execute(stmt)
+                            app_settings = result.scalars().first()
+                            if app_settings:
+                                app_settings.flaresolverr_url = data.get("url", app_settings.flaresolverr_url)
+                            else:
+                                app_settings = AppSettings(flaresolverr_url=data.get("url", ""))
+                                session.add(app_settings)
+                            continue
+
                         stmt = select(SiteCredential).where(SiteCredential.site_key == site_key)
                         result = await session.execute(stmt)
                         existing = result.scalar_one_or_none()
@@ -70,6 +83,7 @@ app.add_middleware(
 )
 
 app.include_router(api_router, prefix="/api")
+app.include_router(integrations_router, prefix="/api/integrations")
 
 @app.get("/api/health")
 async def health_check():
