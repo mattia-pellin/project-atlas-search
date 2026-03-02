@@ -79,7 +79,7 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
     }, []);
 
     const [integrations, setIntegrations] = useState({});
-    const [sending, setSending] = useState(false);
+    const [sending, setSending] = useState({});
 
     const refreshIntegrations = useCallback(() => {
         fetchSettings().then(data => {
@@ -405,28 +405,29 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
                                             title={`Send ${magnetLinks.length} magnet links to qBittorrent`}
                                             onClick={async (e) => {
                                                 e.stopPropagation();
-                                                setSending(true);
+                                                const key = `${r.id}_qbit`;
+                                                setSending(prev => ({ ...prev, [key]: true }));
                                                 try {
                                                     const res = await sendToQBittorrent(magnetLinks);
                                                     showToast(res.message);
                                                 } catch (err) {
                                                     showToast(err.message || 'Failed to send to qBittorrent');
                                                 } finally {
-                                                    setSending(false);
+                                                    setSending(prev => { const n = { ...prev }; delete n[key]; return n; });
                                                 }
                                             }}
-                                            disabled={sending}
+                                            disabled={!!sending[`${r.id}_qbit`]}
                                             style={{
                                                 background: 'rgba(56, 189, 248, 0.15)', border: '1px solid rgba(56, 189, 248, 0.3)',
-                                                borderRadius: '8px', padding: 0, color: '#38bdf8', cursor: sending ? 'not-allowed' : 'pointer',
+                                                borderRadius: '8px', padding: 0, color: '#38bdf8', cursor: sending[`${r.id}_qbit`] ? 'not-allowed' : 'pointer',
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                transition: 'all 0.2s', opacity: sending ? 0.6 : 1,
+                                                transition: 'all 0.2s', opacity: sending[`${r.id}_qbit`] ? 0.6 : 1,
                                                 width: '28px', height: '28px'
                                             }}
-                                            onMouseOver={e => !sending && (e.currentTarget.style.background = 'rgba(56, 189, 248, 0.25)')}
-                                            onMouseOut={e => !sending && (e.currentTarget.style.background = 'rgba(56, 189, 248, 0.15)')}
+                                            onMouseOver={e => !sending[`${r.id}_qbit`] && (e.currentTarget.style.background = 'rgba(56, 189, 248, 0.25)')}
+                                            onMouseOut={e => !sending[`${r.id}_qbit`] && (e.currentTarget.style.background = 'rgba(56, 189, 248, 0.15)')}
                                         >
-                                            {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                                            {sending[`${r.id}_qbit`] ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                                         </button>
                                     )}
 
@@ -435,28 +436,29 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
                                             title={`Send ${normalLinks.length} standard links to JDownloader`}
                                             onClick={async (e) => {
                                                 e.stopPropagation();
-                                                setSending(true);
+                                                const key = `${r.id}_jd`;
+                                                setSending(prev => ({ ...prev, [key]: true }));
                                                 try {
                                                     const res = await sendToJDownloader(normalLinks, fetchedLinks[r.id].password, r.title);
                                                     showToast(res.message);
                                                 } catch (err) {
                                                     showToast(err.message || 'Failed to send to JDownloader');
                                                 } finally {
-                                                    setSending(false);
+                                                    setSending(prev => { const n = { ...prev }; delete n[key]; return n; });
                                                 }
                                             }}
-                                            disabled={sending}
+                                            disabled={!!sending[`${r.id}_jd`]}
                                             style={{
                                                 background: 'rgba(34, 197, 94, 0.15)', border: '1px solid rgba(34, 197, 94, 0.3)',
-                                                borderRadius: '8px', padding: 0, color: '#22c55e', cursor: sending ? 'not-allowed' : 'pointer',
+                                                borderRadius: '8px', padding: 0, color: '#22c55e', cursor: sending[`${r.id}_jd`] ? 'not-allowed' : 'pointer',
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                transition: 'all 0.2s', opacity: sending ? 0.6 : 1,
+                                                transition: 'all 0.2s', opacity: sending[`${r.id}_jd`] ? 0.6 : 1,
                                                 width: '28px', height: '28px'
                                             }}
-                                            onMouseOver={e => !sending && (e.currentTarget.style.background = 'rgba(34, 197, 94, 0.25)')}
-                                            onMouseOut={e => !sending && (e.currentTarget.style.background = 'rgba(34, 197, 94, 0.15)')}
+                                            onMouseOver={e => !sending[`${r.id}_jd`] && (e.currentTarget.style.background = 'rgba(34, 197, 94, 0.25)')}
+                                            onMouseOut={e => !sending[`${r.id}_jd`] && (e.currentTarget.style.background = 'rgba(34, 197, 94, 0.15)')}
                                         >
-                                            {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                                            {sending[`${r.id}_jd`] ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                                         </button>
                                     )}
                                 </>
@@ -591,17 +593,18 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
                                                                             <button
                                                                                 onClick={async (e) => {
                                                                                     e.stopPropagation();
-                                                                                    setSending(true);
+                                                                                    const key = `${r.id}_qbit`;
+                                                                                    setSending(prev => ({ ...prev, [key]: true }));
                                                                                     try {
                                                                                         const res = await sendToQBittorrent(magnetLinks);
                                                                                         showToast(res.message);
                                                                                     } catch (err) {
                                                                                         showToast(err.message || 'Failed to send to qBittorrent');
                                                                                     } finally {
-                                                                                        setSending(false);
+                                                                                        setSending(prev => { const n = { ...prev }; delete n[key]; return n; });
                                                                                     }
                                                                                 }}
-                                                                                disabled={sending}
+                                                                                disabled={!!sending[`${r.id}_qbit`]}
                                                                                 className="glass-button"
                                                                                 style={{
                                                                                     marginLeft: 'auto',
@@ -610,15 +613,15 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
                                                                                     background: 'rgba(255,255,255,0.05)',
                                                                                     border: '1px solid rgba(255,255,255,0.1)',
                                                                                     borderRadius: '6px',
-                                                                                    color: sending ? 'rgba(255,255,255,0.5)' : 'var(--text-primary)',
-                                                                                    cursor: sending ? 'not-allowed' : 'pointer',
+                                                                                    color: sending[`${r.id}_qbit`] ? 'rgba(255,255,255,0.5)' : 'var(--text-primary)',
+                                                                                    cursor: sending[`${r.id}_qbit`] ? 'not-allowed' : 'pointer',
                                                                                     transition: 'all 0.2s',
                                                                                     display: 'flex', alignItems: 'center', gap: '0.4rem'
                                                                                 }}
-                                                                                onMouseOver={(e) => !sending && (e.target.style.background = 'rgba(255,255,255,0.1)')}
-                                                                                onMouseOut={(e) => !sending && (e.target.style.background = 'rgba(255,255,255,0.05)')}
+                                                                                onMouseOver={(e) => !sending[`${r.id}_qbit`] && (e.target.style.background = 'rgba(255,255,255,0.1)')}
+                                                                                onMouseOut={(e) => !sending[`${r.id}_qbit`] && (e.target.style.background = 'rgba(255,255,255,0.05)')}
                                                                             >
-                                                                                {sending ? <Loader2 size={14} className="animate-spin" /> : null}
+                                                                                {sending[`${r.id}_qbit`] ? <Loader2 size={14} className="animate-spin" /> : null}
                                                                                 Send
                                                                             </button>
                                                                         </div>
@@ -632,17 +635,18 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
                                                                             <button
                                                                                 onClick={async (e) => {
                                                                                     e.stopPropagation();
-                                                                                    setSending(true);
+                                                                                    const key = `${r.id}_jd`;
+                                                                                    setSending(prev => ({ ...prev, [key]: true }));
                                                                                     try {
                                                                                         const res = await sendToJDownloader(normalLinks, fetchedLinks[r.id].password, r.title);
                                                                                         showToast(res.message);
                                                                                     } catch (err) {
                                                                                         showToast(err.message || 'Failed to send to JDownloader');
                                                                                     } finally {
-                                                                                        setSending(false);
+                                                                                        setSending(prev => { const n = { ...prev }; delete n[key]; return n; });
                                                                                     }
                                                                                 }}
-                                                                                disabled={sending}
+                                                                                disabled={!!sending[`${r.id}_jd`]}
                                                                                 className="glass-button"
                                                                                 style={{
                                                                                     marginLeft: 'auto',
@@ -651,15 +655,15 @@ export default function ResultsTable({ results, fetchingLinksFor, fetchedLinks, 
                                                                                     background: 'rgba(255,255,255,0.05)',
                                                                                     border: '1px solid rgba(255,255,255,0.1)',
                                                                                     borderRadius: '6px',
-                                                                                    color: sending ? 'rgba(255,255,255,0.5)' : 'var(--text-primary)',
-                                                                                    cursor: sending ? 'not-allowed' : 'pointer',
+                                                                                    color: sending[`${r.id}_jd`] ? 'rgba(255,255,255,0.5)' : 'var(--text-primary)',
+                                                                                    cursor: sending[`${r.id}_jd`] ? 'not-allowed' : 'pointer',
                                                                                     transition: 'all 0.2s',
                                                                                     display: 'flex', alignItems: 'center', gap: '0.4rem'
                                                                                 }}
-                                                                                onMouseOver={(e) => !sending && (e.target.style.background = 'rgba(255,255,255,0.1)')}
-                                                                                onMouseOut={(e) => !sending && (e.target.style.background = 'rgba(255,255,255,0.05)')}
+                                                                                onMouseOver={(e) => !sending[`${r.id}_jd`] && (e.target.style.background = 'rgba(255,255,255,0.1)')}
+                                                                                onMouseOut={(e) => !sending[`${r.id}_jd`] && (e.target.style.background = 'rgba(255,255,255,0.05)')}
                                                                             >
-                                                                                {sending ? <Loader2 size={14} className="animate-spin" /> : null}
+                                                                                {sending[`${r.id}_jd`] ? <Loader2 size={14} className="animate-spin" /> : null}
                                                                                 Send
                                                                             </button>
                                                                         </div>
