@@ -42,11 +42,6 @@ async def fetch_with_cf_bypass(session, url: str, flaresolverr_url: str = "", me
 
     flaresolverr_api = f"{flaresolverr_url.rstrip('/')}/v1"
     
-    # Merge session headers with request headers
-    merged_headers = dict(session.headers)
-    if kwargs.get("headers"):
-        merged_headers.update(kwargs["headers"])
-        
     # Extract cookies from session for FlareSolverr
     session_cookies = []
     from urllib.parse import urlparse
@@ -66,8 +61,7 @@ async def fetch_with_cf_bypass(session, url: str, flaresolverr_url: str = "", me
         "cmd": "request.post" if method.upper() == "POST" else "request.get",
         "url": url,
         "maxTimeout": 60000,
-        "cookies": session_cookies,
-        "headers": merged_headers
+        "cookies": session_cookies
     }
     if method.upper() == "POST" and data:
         from urllib.parse import urlencode
